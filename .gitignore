@@ -1,0 +1,7 @@
+*.swp
+__pycache__
+dist
+
+docs/examples/*/build
+docs/examples/*/images
+docs/examples/*/artifacts
