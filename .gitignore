@@ -5,3 +5,4 @@ dist
 docs/examples/*/build
 docs/examples/*/images
 docs/examples/*/artifacts
+docs/examples/*/userconfig/default.yaml

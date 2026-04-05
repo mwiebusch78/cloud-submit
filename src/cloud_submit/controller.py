@@ -77,20 +77,15 @@ class Controller:
             )
         self._save_image_ref(image.name, ref)
 
-    def build(self, image_name=None, build_id=None, env=None):
+    def build(self, image_name, build_id=None, env=None):
         env_handler = self._config.get_build_env(env)
         build_id = env_handler.generate_build_id(build_id)
-        if image_name is None:
-            images = list(self._config.images.values())
-            build_all = True
-        else:
-            images = self._config.get_image_ancestry(image_name)
-            build_all = False
+        images = self._config.get_image_ancestry(image_name)
 
         with self._config.in_project_root():
             for image in images[:-1]:
                 self._build_image(
-                    image, build_id, env_handler, rebuild=build_all)
+                    image, build_id, env_handler, rebuild=False)
             self._build_image(images[-1], build_id, env_handler, rebuild=True)
 
     def submit(

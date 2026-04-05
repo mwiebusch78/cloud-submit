@@ -1,101 +1,100 @@
+import os
 import sys
+
 import click
-from . import lock
-from . import build
-from . import run_local
-from . import utils
+import yaml
+
+from .utils import CloudSubmitError
+from .controller import Controller
+from .images import BaseImage, ExecutionImage
+
+
+def abort(msg):
+    sys.stderr.write(msg)
+    sys.stderr.write('\n')
+    sys.exit(1)
 
 
 @click.group()
 @click.option(
-    '--product-root', '-p',
+    '--project-root', '-p',
     type=click.Path(exists=True, file_okay=False),
-    default=None,
-    help='Path to the product root directory. Defaults to current directory.',
+    default='.',
+    help='Path to the project root directory. Defaults to current directory.',
+)
+@click.option(
+    '--user', '-u',
+    type=str,
+    default='default',
+    help='Path to the project root directory. Defaults to current directory.',
 )
 @click.pass_context
-def main(ctx, product_root):
+def main(ctx, project_root, user):
     ctx.ensure_object(dict)
-    ctx.obj['product_root'] = product_root
+    project_root = os.path.abspath(project_root)
+    ctx.obj['project_root'] = project_root
 
+    sys.path.insert(0, os.path.join(project_root, 'src'))
+    userconfig_path = os.path.join(project_root, 'userconfig', f'{user}.yaml')
+    with open(userconfig_path, 'r') as stream:
+        try:
+            userconfig = yaml.safe_load(stream)
+        except yaml.YAMLError as e:
+            abort(f'Error reading user config at {userconfig_path}: {str(e)}')
 
-@main.command(
-    name='lock',
-    help='Lock the python environment of a service.',
-)
-@click.argument('service', type=str)
-@click.pass_context
-def lock_cmd(ctx, service):
-    try:
-        lock.lock(service, product_root=ctx.obj['product_root'])
-    except utils.CloudSubmitError as e:
-        sys.stderr.write(str(e))
-        sys.stderr.write('\n')
-        sys.exit(1)
-
+    from csub.build_config import build_config
+    csubconfig = build_config(userconfig)
+    controller = Controller(csubconfig)
+    ctx.obj['config'] = csubconfig
+    ctx.obj['controller'] = controller
 
 @main.command(
     name='build',
-    help='Build the docker image for a service.',
+    help='Build one or more docker images.',
 )
-@click.argument('service', type=str)
+@click.option(
+    '--env', '-e',
+    type=str,
+    default=None,
+    help='The name of the build environment to use.',
+)
 @click.option(
     '--build-id', '-b',
     type=str,
     default=None,
     help=(
         'The ID for the build. This will be used as the image tag. '
-        'Defaults to the current timestamp in YYYYMMDD-HHMMSS format.'
-    ),
-)
-@click.pass_context
-def build_cmd(ctx, service, build_id):
-    try:
-        build.build(
-            service,
-            build_id=build_id,
-            product_root=ctx.obj['product_root'],
-        )
-    except utils.CloudSubmitError as e:
-        sys.stderr.write(str(e))
-        sys.stderr.write('\n')
-        sys.exit(1)
-
-
-@main.command(
-    name='run-local',
-    help='Build the docker image and run the service locally.',
-)
-@click.argument('service', type=str)
-@click.option(
-    '--build-id', '-b',
-    type=str,
-    default=None,
-    help=(
-        'The ID for the build. This will be used as the image tag. '
-        'Same as the run ID if not specified.'
+        'Defaults to the current timestamp in YYYYMMDD-HHMMSS-XXXX format, '
+        'where XXXX is a four-character UUID.'
     ),
 )
 @click.option(
-    '--run-id', '-r',
-    type=str,
-    default=None,
-    help=(
-        'The ID for the run. This will be used in the folder name for the '
-        'run artifacts. Defaults to the current timestamp in '
-        'YYYYMMDD-HHMMSS format.'
-    ),
+    '--all', '-a', 'build_all',
+    is_flag=True,
+    help='Build all images.',
 )
+@click.argument('images', type=str, nargs=-1)
 @click.pass_context
-def run_local_cmd(ctx, service, build_id, run_id):
-    try:
-        run_local.run_local(
-            service,
-            build_id=build_id,
-            run_id=run_id,
-            product_root=ctx.obj['product_root'],
-        )
-    except utils.CloudSubmitError as e:
-        sys.stderr.write(str(e))
-        sys.stderr.write('\n')
-        sys.exit(1)
+def build_cmd(ctx, env, build_id, build_all, images):
+    ctx.ensure_object(dict)
+    config = ctx.obj['config']
+    controller = ctx.obj['controller']
+
+    for image in images:
+        if image not in config.images:
+            abort(f'No definition found for image {image}.')
+    if build_all:
+        images = list(config.images.keys())
+    else:
+        image_set = set(images)
+        images = [
+            image for image in config.images.keys()
+            if image in image_set
+        ]
+
+    for image in images:
+        try:
+            controller.build(image, build_id=build_id, env=env)
+        except CloudSubmitError as e:
+            abort(str(e))
+
