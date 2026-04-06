@@ -64,6 +64,9 @@ class EnvironmentHandler:
                 f'.{self.name}'
             )
 
+    def pull_image(self, ref):
+        raise NotImplementedError
+
     def build_image(self, path, image, build_id):
         repo = self.get_image_repo_name(image)
         ref = ':'.join([repo, build_id])

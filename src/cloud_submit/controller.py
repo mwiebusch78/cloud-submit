@@ -66,6 +66,7 @@ class Controller:
             if parent_ref is None:
                 raise CloudSubmitError(
                     f'Could not find reference for image {image.parent}.')
+            env.pull_image(parent_ref)
         image.setup_builddir(path, parent_ref)
 
         print(f'Building image {image.name}.')

@@ -43,6 +43,30 @@ class LocalEnv(EnvironmentHandler):
             f'volume-subpath={subpath}'
         )
 
+    def pull_image(self, ref):
+        command = [
+            'docker',
+            'images',
+            ref,
+            '-q',
+        ]
+        try:
+            result = subprocess.run(
+                command,
+                stdout=subprocess.PIPE,
+            )
+        except KeyboardInterrupt:
+            raise CloudSubmitError('Aborted on user request.')
+        if result.returncode != 0:
+            raise CloudSubmitError(
+                'docker images command exited with status code '
+                f'{result.returncode}.'
+            )
+        if not result.stdout.strip():
+            raise CloudSubmitError(
+                f'Could not find image {ref}. You may have to build it again.'
+            )
+
     def submit(self, pipeline, image_refs, run_id):
         artifacts_path = os.path.join('artifacts', pipeline.name, run_id)
         ensure_path(artifacts_path)
