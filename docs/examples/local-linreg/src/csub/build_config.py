@@ -4,7 +4,7 @@ import cloud_submit as cs
 PROJECT_NAME = 'local-linreg'
 
 
-def build_config(userconfig):
+def build_config(project_root, userconfig):
     # Images
 
     images = [
@@ -60,6 +60,7 @@ def build_config(userconfig):
     config = cs.Config(
         project_name=PROJECT_NAME,
         user_name=userconfig['username'],
+        project_root=project_root,
         images=images,
         pipelines=[
             cs.Pipeline(

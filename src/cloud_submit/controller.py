@@ -107,17 +107,16 @@ class Controller:
         steps = set(steps)
         steps = [step for step in pipeline.steps if step.name in steps]
 
-        images = sorted(set(step.image for step in steps))
-        for image in images:
-            self.build(image, build_id=run_id, env=build_env)
-        refs = {}
-        for step in steps:
-            ref = self._get_image_ref(step.image)
-            if ref is None:
-                raise CloudSubmitError(
-                    f'Could not find image ref for image {step.image}')
-            refs[step.name] = ref
-
         with self._config.in_project_root():
-            env_handler.submit(pipeline, refs, run_id)
+            images = sorted(set(step.image for step in steps))
+            for image in images:
+                self.build(image, build_id=run_id, env=build_env)
+            refs = {}
+            for step in steps:
+                ref = self._get_image_ref(step.image)
+                if ref is None:
+                    raise CloudSubmitError(
+                        f'Could not find image ref for image {step.image}')
+                refs[step.name] = ref
 
+            env_handler.submit(pipeline, refs, run_id)

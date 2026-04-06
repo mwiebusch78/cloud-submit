@@ -8,12 +8,10 @@ from .execution_handler import create_execution_handler
 
 if __name__ == '__main__':
     if len(sys.argv) != 3:
-        print(sys.argv)
         raise SystemExit(
             'Invalid number of command line arguments. Expected 2.')
     pipeline_name = sys.argv[1]
     steps = set(sys.argv[2].split(','))
-    print(steps)
 
     pipelines = read_pipelines()
     try:
