@@ -50,7 +50,9 @@ class ExecutionImage(Image):
         with open(os.path.join(path, 'Dockerfile'), 'a') as dockerfile:
             dockerfile.write(
                 '\nCOPY --chown=root:root src /root/src/\n'
-                'RUN mkdir -p /root/artifacts\n'
+                'RUN mkdir -p /root/artifacts/run && '
+                    'mkdir -p /root/artifacts/user && '
+                    'mkdir -p /root/artifacts/project\n'
                 'ENV PYTHONPATH="/root/src:$PYTHONPATH"\n'
                 'WORKDIR /root\n'
                 f'ENTRYPOINT ["/usr/bin/env", "{self._python_cmd}", "-u", '
