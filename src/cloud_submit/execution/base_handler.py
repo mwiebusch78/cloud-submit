@@ -1,5 +1,6 @@
 import os
 import shutil
+import datetime as dt
 
 
 class BaseExecutionHandler:
@@ -45,5 +46,11 @@ class BaseExecutionHandler:
     def sync_artifact_location(self, artifact_location):
         print(f'Skipping sync of artifact {artifact_location.artifact.name}.')
 
+    def get_submit_timestamp(self):
+        return dt.datetime.fromisoformat(os.environ['CSUB_TIMESTAMP'])
+
+    def get_run_id(self):
+        return os.environ['CSUB_RUN_ID']
+
     def get_worker_index(self):
-        return os.environ['CSUB_WORKER_INDEX']
+        return int(os.environ['CSUB_WORKER_INDEX'])

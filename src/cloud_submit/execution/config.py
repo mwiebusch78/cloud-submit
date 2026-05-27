@@ -1,9 +1,19 @@
 import os
+import datetime as dt
+
 from .json_io import read_json
 
 
 class ConfigError(Exception):
     pass
+
+
+def to_utc(timestamp):
+    if timestamp is None:
+        return None
+    if timestamp.tzinfo is None:
+        timestamp = timestamp.replace(tzinfo=dt.UTC)
+    return timestamp.astimezone(dt.UTC)
 
 
 class Artifact:
@@ -115,6 +125,8 @@ class Step:
         num_workers=None,
         pass_num_workers_as='num_workers',
         pass_worker_index_as='worker_index',
+        pass_submit_timestamp_as=None,
+        pass_run_id_as=None,
     ):
         self.name = name
         self.function = function
@@ -137,6 +149,8 @@ class Step:
             self.num_workers = int(num_workers)
         self.pass_num_workers_as = pass_num_workers_as
         self.pass_worker_index_as = pass_worker_index_as
+        self.pass_submit_timestamp_as = pass_submit_timestamp_as
+        self.pass_run_id_as = pass_run_id_as
 
     def to_dict(self):
         return {
@@ -147,6 +161,11 @@ class Step:
             'outputs': {k: v.to_dict() for k, v in self.outputs.items()},
             'temporaries':
                 {k: v.to_dict() for k, v in self.temporaries.items()},
+            'num_workers': self.num_workers,
+            'pass_num_workers_as': self.pass_num_workers_as,
+            'pass_worker_index_as': self.pass_worker_index_as,
+            'pass_submit_timestamp_as': self.pass_submit_timestamp_as,
+            'pass_run_id_as': self.pass_run_id_as,
         }
 
     @staticmethod
@@ -167,6 +186,11 @@ class Step:
                 k: ArtifactLocation.from_dict(v)
                 for k, v in obj['temporaries'].items()
             },
+            num_workers=obj['num_workers'],
+            pass_num_workers_as=obj['pass_num_workers_as'],
+            pass_worker_index_as=obj['pass_worker_index_as'],
+            pass_submit_timestamp_as=obj['pass_submit_timestamp_as'],
+            pass_run_id_as=obj['pass_run_id_as'],
         )
 
 
@@ -175,9 +199,11 @@ class Pipeline:
         self,
         name,
         steps,
+        default_submit_timestamp=None,
     ):
         self.name = name
         self.steps = list(steps)
+        self.default_submit_timestamp = to_utc(default_submit_timestamp)
 
         step_names = set()
         for step in self.steps:
@@ -192,6 +218,7 @@ class Pipeline:
         return {
             'name': self.name,
             'steps': [s.to_dict() for s in self.steps],
+            'default_submit_timestamp': self.default_submit_timestamp
         }
 
     @staticmethod
@@ -199,6 +226,7 @@ class Pipeline:
         return Pipeline(
             name=obj['name'],
             steps=[Step.from_dict(s) for s in obj['steps']],
+            default_submit_timestamp=obj['default_submit_timestamp']
         )
 
 

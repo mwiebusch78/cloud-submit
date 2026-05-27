@@ -1,8 +1,10 @@
 import os
 import shutil
+import datetime as dt
 
 from .utils import ensure_path, CloudSubmitError
 from .images import ExecutionImage
+from .execution.config import to_utc
 
 class Controller:
     def __init__(self, config):
@@ -82,40 +84,62 @@ class Controller:
             )
         self._save_image_ref(image.name, ref)
 
-    def build(self, image_name, build_id=None, env=None):
+    def build(self, images, build_id=None, env=None):
+        now = dt.datetime.now(tz=dt.UTC)
         env_handler = self._config.get_build_env(env)
-        build_id = env_handler.generate_build_id(build_id)
-        images = self._config.get_image_ancestry(image_name)
+        build_id = env_handler.generate_build_id(now, build_id)
+
+        images = set(images)
+        for image in images:
+            if image not in self._config.images:
+                raise CloudSubmitError(
+                    f'No definition found for image {image}.'
+                )
+        all_images = set(
+            i.name for image in images
+            for i in self._config.get_image_ancestry(image)
+        )
 
         with self._config.in_project_root():
-            for image in images[:-1]:
+            for image_name, image in self._config.images.items():
+                if image_name not in all_images:
+                    continue
+                rebuild = image_name in images
                 self._build_image(
-                    image, build_id, env_handler, rebuild=False)
-            self._build_image(images[-1], build_id, env_handler, rebuild=True)
+                    image, build_id, env_handler, rebuild=rebuild)
 
     def submit(
         self,
         pipeline,
         steps=None,
         run_id=None,
+        timestamp=None,
         env=None,
         build_env=None,
     ):
-        env_handler = self._config.get_submit_env(env)
-        run_id = env_handler.generate_run_id(run_id)
         try:
             pipeline = self._config.pipelines[pipeline]
         except KeyError:
             raise CloudSubmitError(f'Pipeline not found: {pipeline}')
+
+        now = dt.datetime.now(tz=dt.UTC)
+        if isinstance(timestamp, str) and timestamp == 'now':
+            timestamp = now
+        if timestamp is None:
+            timestamp = pipeline.default_submit_timestamp
+        if timestamp is None:
+            timestamp = now
+        timestamp = to_utc(timestamp)
+        env_handler = self._config.get_submit_env(env)
+        run_id = env_handler.generate_run_id(now, run_id)
         if steps is None:
             steps = [step.name for step in pipeline.steps]
         steps = set(steps)
         steps = [step for step in pipeline.steps if step.name in steps]
 
         with self._config.in_project_root():
-            images = sorted(set(step.image for step in steps))
-            for image in images:
-                self.build(image, build_id=run_id, env=build_env)
+            images = [step.image for step in steps]
+            self.build(images, build_id=run_id, env=build_env)
             refs = {}
             for step in steps:
                 ref = self._get_image_ref(step.image)
@@ -124,4 +148,4 @@ class Controller:
                         f'Could not find image ref for image {step.image}')
                 refs[step.name] = ref
 
-            env_handler.submit(pipeline, refs, run_id)
+            env_handler.submit(pipeline, refs, timestamp, run_id)

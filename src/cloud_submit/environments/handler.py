@@ -5,6 +5,7 @@ import subprocess
 
 from ..utils import CloudSubmitError
 from ..images import BaseImage, ExecutionImage
+from ..execution.config import to_utc
 
 
 class EnvironmentHandler:
@@ -22,18 +23,18 @@ class EnvironmentHandler:
         self._docker_registry = docker_registry
         self._docker_namespace = docker_namespace
 
-    def _generate_id(self, id=None):
+    def _generate_id(self, timestamp, id):
         if id is not None:
             return id
-        now = dt.datetime.utcnow()
         uid = str(uuid.uuid4())
-        return now.strftime('%Y%m%d-%H%M%S-') + uid[:4]
+        timestamp=to_utc(timestamp)
+        return timestamp.strftime('%Y%m%d-%H%M%S-') + uid[:4]
 
-    def generate_build_id(self, build_id=None):
-        return self._generate_id(build_id)
+    def generate_build_id(self, timestamp, build_id=None):
+        return self._generate_id(timestamp, build_id)
 
-    def generate_run_id(self, run_id=None):
-        return self._generate_id(run_id)
+    def generate_run_id(self, timestamp, run_id=None):
+        return self._generate_id(timestamp, run_id)
 
     def install_execution_handler(self, path):
         raise NotImplementedError
@@ -90,5 +91,5 @@ class EnvironmentHandler:
                 f'Build exited with status code {result.returncode}.')
         return ref
 
-    def submit(self, pipeline, image_refs, run_id):
+    def submit(self, pipeline, image_refs, timestamp, run_id):
         raise NotImplementedError

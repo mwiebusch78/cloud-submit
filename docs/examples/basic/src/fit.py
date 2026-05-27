@@ -6,8 +6,11 @@ import polars as pl
 
 def fit_step(
     train_data_path,
-    parameters_path,
+    coefficients_path,
+    predictions_path,
 ):
+    print(f'Fitting model.')
+
     train_data = pl.read_parquet(train_data_path)
     x = train_data.get_column('x').to_numpy()
     y = train_data.get_column('y').to_numpy()
@@ -19,9 +22,20 @@ def fit_step(
     # fit linear regression model
     coeffs = np.linalg.solve(np.dot(x.T, x), np.dot(x.T, y))
 
-    with open(parameters_path, 'w') as stream:
+    # compute in-sample predictions
+    preds = np.dot(x, coeffs)
+    preds = train_data.with_columns(pl.Series('pred', preds))
+
+    # save coefficients
+    with open(coefficients_path, 'w') as stream:
         json.dump(
-            {'alpha': float(coeffs[0]), 'beta': float(coeffs[1])},
+            {
+                'alpha': float(coeffs[0]),
+                'beta': float(coeffs[1]),
+            },
             stream,
         )
+
+    # save in-sample predictions
+    preds.write_parquet(predictions_path)
 

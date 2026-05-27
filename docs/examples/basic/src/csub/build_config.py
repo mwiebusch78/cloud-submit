@@ -1,7 +1,8 @@
+import datetime as dt
 import cloud_submit as cs
 
 
-PROJECT_NAME = 'local-linreg'
+PROJECT_NAME = 'basic'
 
 
 def build_config(project_root, userconfig):
@@ -23,8 +24,12 @@ def build_config(project_root, userconfig):
 
     # Artifacts
 
-    train_data_af = cs.Artifact('train_data.parquet', kind='file', scope='run')
-    parameters_af = cs.Artifact('parameters.json', kind='file', scope='run')
+    train_data_af = cs.Artifact(
+        'train_data.parquet', kind='file', scope='run')
+    coefficients_af = cs.Artifact(
+        'coefficients.json', kind='file', scope='run')
+    predictions_af = cs.Artifact(
+        'predictions.parquet', kind='file', scope='run')
 
     # Steps
 
@@ -52,8 +57,9 @@ def build_config(project_root, userconfig):
             'train_data_path': train_data_af.local,
         },
         outputs={
-            'parameters_path': parameters_af.local,
-        }
+            'coefficients_path': coefficients_af.local,
+            'predictions_path': predictions_af.local,
+        },
     )
 
 

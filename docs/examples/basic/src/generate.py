@@ -10,6 +10,8 @@ def generate_step(
     sigma,
     train_data_path,
 ):
+    print(f'Generating training data.')
+
     rng = np.random.default_rng(random_seed)
     x = rng.normal(size=num_rows)
     y = alpha + beta*x + sigma*rng.normal(size=num_rows)

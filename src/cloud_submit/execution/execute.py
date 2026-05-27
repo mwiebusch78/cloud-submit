@@ -1,6 +1,7 @@
 import sys
 import importlib
 import copy
+import datetime as dt
 
 from .config import read_pipelines
 from .execution_handler import create_execution_handler
@@ -9,7 +10,9 @@ from .execution_handler import create_execution_handler
 if __name__ == '__main__':
     if len(sys.argv) != 3:
         raise SystemExit(
-            'Invalid number of command line arguments. Expected 2.')
+            'Invalid number of command line arguments. '
+            'Expected PIPELINE and STEPS.'
+        )
     pipeline_name = sys.argv[1]
     steps = set(sys.argv[2].split(','))
 
@@ -21,6 +24,10 @@ if __name__ == '__main__':
             f'Invalid pipeline name: {pipeline_name}')
 
     eh = create_execution_handler()
+    timestamp = eh.get_submit_timestamp()
+    run_id = eh.get_run_id()
+    worker_index = eh.get_worker_index()
+
     synced_artifacts = set()
 
     for step in pipeline:
@@ -49,8 +56,16 @@ if __name__ == '__main__':
         for kw, loc in step.temporaries.items():
             kwargs[kw] = eh.get_artifact_location(loc)
         if step.num_workers is not None:
+            if worker_index < 0:
+                raise SystemExit(
+                    f'Invalid worker index {worker_index} in step {step.name}.'
+                )
             kwargs[step.pass_num_workers_as] = step.num_workers
-            kwargs[step.pass_worker_index_as] = eh.get_worker_index()
+            kwargs[step.pass_worker_index_as] = worker_index
+        if step.pass_submit_timestamp_as is not None:
+            kwargs[step.pass_submit_timestamp_as] = timestamp
+        if step.pass_run_id_as is not None:
+            kwargs[step.pass_run_id_as] = run_id
 
         try:
             function(**kwargs)

@@ -1,5 +1,6 @@
 import os
 import sys
+import datetime as dt
 
 import click
 import yaml
@@ -137,18 +138,10 @@ def build(ctx, env, build_id, build_all, images):
             abort(f'No definition found for image {image}.')
     if build_all:
         images = list(config.images.keys())
-    else:
-        image_set = set(images)
-        images = [
-            image for image in config.images.keys()
-            if image in image_set
-        ]
-
-    for image in images:
-        try:
-            controller.build(image, build_id=build_id, env=env)
-        except CloudSubmitError as e:
-            abort(str(e))
+    try:
+        controller.build(images, build_id=build_id, env=env)
+    except CloudSubmitError as e:
+        abort(str(e))
 
 
 @main.command(
@@ -183,6 +176,20 @@ steps are executed.
         'format, where XXXX is a four-character UUID.'
     ),
 )
+@click.option(
+    '--timestamp', '-t',
+    type=str,
+    default=None,
+    help=(
+        'The timestamp used as the submit time of the pipeline. '
+        'If not specified the default submit timestamp of the pipeline is '
+        'used. If that is not specified either the current time is used. '
+        'You can use this option to simulate run submitted at a different '
+        'time. The value must be in ISO format (YYYY-MM-DDTHH:MM:SS). '
+        'You can also use "-t now" to use the current time irrespective of '
+        'the pipeline default.'
+    ),
+)
 @click.argument(
     'pipeline',
     type=str,
@@ -194,7 +201,7 @@ steps are executed.
     default=None,
 )
 @click.pass_context
-def submit(ctx, env, build_env, run_id, pipeline, steps):
+def submit(ctx, env, build_env, run_id, timestamp, pipeline, steps):
     init(ctx)
     config = ctx.obj['config']
     controller = ctx.obj['controller']
@@ -204,12 +211,16 @@ def submit(ctx, env, build_env, run_id, pipeline, steps):
     except KeyError:
         abort(f'Pipeline not found: {pipeline}')
 
+    if timestamp is not None and timestamp != 'now':
+        timestamp = dt.datetime.fromisoformat(timestamp)
+
     try:
         steps = get_steps(pipeline, steps)
         controller.submit(
             pipeline.name,
             steps=steps,
             run_id=run_id,
+            timestamp=timestamp,
             env=env,
             build_env=build_env,
         )

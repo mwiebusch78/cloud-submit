@@ -68,7 +68,7 @@ class LocalEnv(EnvironmentHandler):
                 f'Could not find image {ref}. You may have to build it again.'
             )
 
-    def submit(self, pipeline, image_refs, run_id):
+    def submit(self, pipeline, image_refs, timestamp, run_id):
         artifacts_project_path = os.path.join('artifacts', 'shared')
         artifacts_user_path = os.path.join(
             'artifacts', 'users', self._user, 'shared')
@@ -82,29 +82,39 @@ class LocalEnv(EnvironmentHandler):
                 continue
             ref = image_refs[step.name]
 
-            command = [
-                'docker',
-                'run',
-                '--rm',
-                '--mount',
-                build_artifacts_mount_option(artifacts_project_path, 'project'),
-                '--mount',
-                build_artifacts_mount_option(artifacts_user_path, 'user'),
-                '--mount',
-                build_artifacts_mount_option(artifacts_run_path, 'run'),
-                ref,
-                pipeline.name,
-                step.name,
-            ]
-            try:
-                result = subprocess.run(
-                    command,
-                    stdout=sys.stdout,
-                    stderr=sys.stderr,
-                )
-            except KeyboardInterrupt:
-                raise CloudSubmitError('Aborted on user request.')
+            worker_indices = [-1]
+            if step.num_workers is not None:
+                worker_indices = range(step.num_workers)
 
-            if result.returncode != 0:
-                raise CloudSubmitError(
-                    f'Container exited with status code {result.returncode}.')
+            for worker_index in worker_indices:
+                command = [
+                    'docker',
+                    'run',
+                    '--rm',
+                    '--mount',
+                    build_artifacts_mount_option(artifacts_project_path, 'project'),
+                    '--mount',
+                    build_artifacts_mount_option(artifacts_user_path, 'user'),
+                    '--mount',
+                    build_artifacts_mount_option(artifacts_run_path, 'run'),
+                    '--env', f'CSUB_TIMESTAMP={timestamp.isoformat()}',
+                    '--env', f'CSUB_RUN_ID={run_id}',
+                    '--env', f'CSUB_WORKER_INDEX={worker_index}',
+                    ref,
+                    pipeline.name,
+                    step.name,
+                ]
+                try:
+                    result = subprocess.run(
+                        command,
+                        stdout=sys.stdout,
+                        stderr=sys.stderr,
+                    )
+                except KeyboardInterrupt:
+                    raise CloudSubmitError('Aborted on user request.')
+
+                if result.returncode != 0:
+                    raise CloudSubmitError(
+                        'Container exited with status code '
+                        f'{result.returncode}.'
+                    )
