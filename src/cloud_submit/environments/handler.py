@@ -66,6 +66,47 @@ class EnvironmentHandler:
             )
 
     def pull_image(self, ref):
+        command = [
+            'docker',
+            'pull',
+            ref,
+        ]
+        try:
+            result = subprocess.run(command)
+        except KeyboardInterrupt:
+            raise CloudSubmitError('Aborted on user request.')
+        if result.returncode != 0:
+            raise CloudSubmitError(
+                'docker pull command exited with status code '
+                f'{result.returncode}.'
+            )
+
+    def list_local_image_tags(self, repo_name):
+        command = [
+            'docker',
+            'image',
+            'list',
+            '--format', '{{.Tag}}',
+            repo_name,
+        ]
+        try:
+            result = subprocess.run(
+                command,
+                stdout=subprocess.PIPE,
+            )
+        except KeyboardInterrupt:
+            raise CloudSubmitError('Aborted on user request.')
+        if result.returncode != 0:
+            raise CloudSubmitError(
+                'docker images command exited with status code '
+                f'{result.returncode}.'
+            )
+        result = result.stdout.decode('utf-8').strip()
+        if not result:
+            return []
+        return result.split('\n')
+
+    def list_remote_image_tags(self, repo_name):
         raise NotImplementedError
 
     def build_image(self, path, image, build_id):

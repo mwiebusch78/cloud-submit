@@ -108,6 +108,33 @@ class Controller:
                 self._build_image(
                     image, build_id, env_handler, rebuild=rebuild)
 
+    def list_image_refs(self, images=None, ids=None, env=None, remote=False):
+        env_handler = self._config.get_build_env(env)
+        if images is None:
+            images = list(self._config.images.keys())
+        else:
+            images = set(images)
+            images = [
+                i for i in self._config.images.keys()
+                if i in images
+            ]
+        if ids is not None:
+            ids = set(ids)
+
+        results = []
+        for image in images:
+            image = self._config.images[image]
+            repo_name = env_handler.get_image_repo_name(image)
+            if remote:
+                tags = env_handler.list_remote_image_tags(repo_name)
+            else:
+                tags = env_handler.list_local_image_tags(repo_name)
+            if ids is not None:
+                tags = [t for t in tags if t in ids]
+            for tag in tags:
+                results.append(':'.join([repo_name, tag]))
+        return results
+
     def submit(
         self,
         pipeline,

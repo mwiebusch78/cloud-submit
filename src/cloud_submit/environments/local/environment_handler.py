@@ -68,6 +68,11 @@ class LocalEnv(EnvironmentHandler):
                 f'Could not find image {ref}. You may have to build it again.'
             )
 
+    def list_remote_image_tags(self, repo_name):
+        raise CloudSubmitError(
+            'Listing remote image refs is not supported by local environment.'
+        )
+
     def submit(self, pipeline, image_refs, timestamp, run_id):
         artifacts_project_path = os.path.join('artifacts', 'shared')
         artifacts_user_path = os.path.join(
