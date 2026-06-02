@@ -73,6 +73,11 @@ class LocalEnv(EnvironmentHandler):
             'Listing remote image refs is not supported by local environment.'
         )
 
+    def remove_remote_image_refs(self, refs):
+        raise CloudSubmitError(
+            'Removing remote images is not supported by local environment.'
+        )
+
     def submit(self, pipeline, image_refs, timestamp, run_id):
         artifacts_project_path = os.path.join('artifacts', 'shared')
         artifacts_user_path = os.path.join(

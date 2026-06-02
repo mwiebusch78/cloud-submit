@@ -135,6 +135,13 @@ class Controller:
                 results.append(':'.join([repo_name, tag]))
         return results
 
+    def remove_image_refs(self, refs, remote=False, env=None):
+        env_handler = self._config.get_build_env(env)
+        if remote:
+            env_handler.remove_remote_image_refs(refs)
+        else:
+            env_handler.remove_local_image_refs(refs)
+
     def submit(
         self,
         pipeline,

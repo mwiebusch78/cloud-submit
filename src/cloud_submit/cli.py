@@ -338,3 +338,59 @@ def list_images(ctx, env, images, local, remote, build_ids):
         table = tabulate(data, header=['NAME', 'TYPE'])
         if table:
             print(table)
+
+
+@images.command(
+    name='remove',
+    help='Remove images associated with the project.',
+)
+@click.option(
+    '--env', '-e',
+    type=str,
+    default=None,
+    help='The name of the environment to use for listing images.',
+)
+@click.option(
+    '--images', '-i',
+    type=str,
+    default=None,
+    help=(
+        'Comma-separated list of names for the images to remove. '
+        'If absent, all declared images will be removed.'
+    ),
+)
+@click.option(
+    '--remote', '-r',
+    is_flag=True,
+    help='Remove images from remote registry.',
+)
+@click.option(
+    '--build-ids', '-b',
+    type=str,
+    default=None,
+    help=(
+        'Comma-separated list of build IDs. Only images '
+        'with the given build IDs are removed.'
+    ),
+)
+@click.pass_context
+def list_images(ctx, env, images, remote, build_ids):
+    init(ctx)
+    config = ctx.obj['config']
+    controller = ctx.obj['controller']
+
+    if images is not None:
+        images = list(set(images.split(',')))
+    if build_ids is not None:
+        build_ids = list(set(build_ids.split(',')))
+
+    try:
+        refs = controller.list_image_refs(
+            images=images,
+            ids=build_ids,
+            env=env,
+            remote=remote,
+        )
+        controller.remove_image_refs(refs, remote=remote, env=env)
+    except CloudSubmitError as e:
+        abort(str(e))

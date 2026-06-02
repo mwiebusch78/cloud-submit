@@ -14,12 +14,14 @@ class EnvironmentHandler:
             name,
             project,
             user,
+            docker_command='docker',
             docker_registry=None,
             docker_namespace='csub',
     ):
         self.name = name
         self._project = project
         self._user = user
+        self._docker_command = str(docker_command)
         self._docker_registry = docker_registry
         self._docker_namespace = docker_namespace
 
@@ -67,7 +69,7 @@ class EnvironmentHandler:
 
     def pull_image(self, ref):
         command = [
-            'docker',
+            self._docker_command,
             'pull',
             ref,
         ]
@@ -83,7 +85,7 @@ class EnvironmentHandler:
 
     def list_local_image_tags(self, repo_name):
         command = [
-            'docker',
+            self._docker_command,
             'image',
             'list',
             '--format', '{{.Tag}}',
@@ -98,7 +100,7 @@ class EnvironmentHandler:
             raise CloudSubmitError('Aborted on user request.')
         if result.returncode != 0:
             raise CloudSubmitError(
-                'docker images command exited with status code '
+                'docker image list exited with status code '
                 f'{result.returncode}.'
             )
         result = result.stdout.decode('utf-8').strip()
@@ -109,11 +111,31 @@ class EnvironmentHandler:
     def list_remote_image_tags(self, repo_name):
         raise NotImplementedError
 
+    def remove_local_image_refs(self, refs):
+        command = [
+            self._docker_command,
+            'image',
+            'remove',
+            *refs,
+        ]
+        try:
+            result = subprocess.run(command)
+        except KeyboardInterrupt:
+            raise CloudSubmitError('Aborted on user request.')
+        if result.returncode != 0:
+            raise CloudSubmitError(
+                'docker image remove exited with status code '
+                f'{result.returncode}.'
+            )
+
+    def remove_remote_image_refs(self, refs):
+        raise NotImplementedError
+
     def build_image(self, path, image, build_id):
         repo = self.get_image_repo_name(image)
         ref = ':'.join([repo, build_id])
         command = [
-            'docker',
+            self._docker_command,
             'build',
             '-t', ref,
             path,
