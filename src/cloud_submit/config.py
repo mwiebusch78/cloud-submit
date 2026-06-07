@@ -3,7 +3,7 @@ import contextlib
 
 from .execution.json_io import write_json
 from .execution.config import ConfigError
-from .environments.local.environment_handler import LocalEnv
+from .envs.local.environment_handler import LocalEnv
 from .images import BaseImage, ExecutionImage
 
 
@@ -35,7 +35,6 @@ class Config:
         project_name,
         user_name,
         project_root=None,
-        docker_namespace='localhost/csub',
         images=None,
         pipelines=None,
         environments=None,
@@ -45,7 +44,6 @@ class Config:
         self.project_name = project_name
         self.user_name = user_name
         self.project_root = project_root
-        self.docker_namespace = docker_namespace
         self.environments = _dictify(environments, 'environment')
         self.images = _dictify(images, 'image')
         self.pipelines = _dictify(pipelines, 'pipeline')

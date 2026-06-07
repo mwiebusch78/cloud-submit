@@ -3,9 +3,9 @@ import datetime as dt
 import uuid
 import subprocess
 
-from ..utils import CloudSubmitError
-from ..images import BaseImage, ExecutionImage
-from ..execution.config import to_utc
+from .utils import CloudSubmitError, run_command
+from .images import BaseImage, ExecutionImage
+from .execution.config import to_utc
 
 
 class EnvironmentHandler:
@@ -68,42 +68,25 @@ class EnvironmentHandler:
             )
 
     def pull_image(self, ref):
-        command = [
+        run_command([
             self._docker_command,
             'pull',
             ref,
-        ]
-        try:
-            result = subprocess.run(command)
-        except KeyboardInterrupt:
-            raise CloudSubmitError('Aborted on user request.')
-        if result.returncode != 0:
-            raise CloudSubmitError(
-                'docker pull command exited with status code '
-                f'{result.returncode}.'
-            )
+        ])
 
     def list_local_image_tags(self, repo_name):
-        command = [
-            self._docker_command,
-            'image',
-            'list',
-            '--format', '{{.Tag}}',
-            repo_name,
-        ]
-        try:
-            result = subprocess.run(
-                command,
-                stdout=subprocess.PIPE,
-            )
-        except KeyboardInterrupt:
-            raise CloudSubmitError('Aborted on user request.')
-        if result.returncode != 0:
-            raise CloudSubmitError(
-                'docker image list exited with status code '
-                f'{result.returncode}.'
-            )
-        result = result.stdout.decode('utf-8').strip()
+        result = run_command(
+            [
+                self._docker_command,
+                'image',
+                'list',
+                '--format', '{{.Tag}}',
+                repo_name,
+            ],
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        result = result.stdout.strip()
         if not result:
             return []
         return result.split('\n')
@@ -112,21 +95,12 @@ class EnvironmentHandler:
         raise NotImplementedError
 
     def remove_local_image_refs(self, refs):
-        command = [
+        run_command([
             self._docker_command,
             'image',
             'remove',
             *refs,
-        ]
-        try:
-            result = subprocess.run(command)
-        except KeyboardInterrupt:
-            raise CloudSubmitError('Aborted on user request.')
-        if result.returncode != 0:
-            raise CloudSubmitError(
-                'docker image remove exited with status code '
-                f'{result.returncode}.'
-            )
+        ])
 
     def remove_remote_image_refs(self, refs):
         raise NotImplementedError
@@ -134,24 +108,12 @@ class EnvironmentHandler:
     def build_image(self, path, image, build_id):
         repo = self.get_image_repo_name(image)
         ref = ':'.join([repo, build_id])
-        command = [
+        run_command([
             self._docker_command,
             'build',
             '-t', ref,
             path,
-        ]
-        try:
-            result = subprocess.run(
-                command,
-                stdout=sys.stdout,
-                stderr=sys.stderr,
-            )
-        except KeyboardInterrupt:
-            raise CloudSubmitError('Aborted on user request.')
-
-        if result.returncode != 0:
-            raise CloudSubmitError(
-                f'Build exited with status code {result.returncode}.')
+        ])
         return ref
 
     def submit(self, pipeline, image_refs, timestamp, run_id):

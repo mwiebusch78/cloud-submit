@@ -33,8 +33,8 @@ class Controller:
             os.path.join(path, 'config.py'),
         )
         shutil.copyfile(
-            os.path.join(sourcedir, 'execution', 'base_handler.py'),
-            os.path.join(path, 'base_handler.py'),
+            os.path.join(sourcedir, 'execution', 'base_execution_handler.py'),
+            os.path.join(path, 'base_execution_handler.py'),
         )
         shutil.copyfile(
             os.path.join(sourcedir, 'execution', 'json_io.py'),
