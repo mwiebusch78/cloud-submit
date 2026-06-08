@@ -10,7 +10,7 @@ class Controller:
     def __init__(self, config):
         self._config = config
 
-    def _get_image_ref(self, image_name):
+    def get_image_ref(self, image_name):
         ensure_path('images')
         path = os.path.join('images', image_name)
         try:
@@ -48,7 +48,7 @@ class Controller:
 
     def _build_image(self, image, build_id, env, rebuild=False):
         if not rebuild:
-            ref = self._get_image_ref(image.name)
+            ref = self.get_image_ref(image.name)
             if ref is not None:
                 print(f'Using existing build of {image.name}: {ref}')
                 return ref
@@ -68,7 +68,7 @@ class Controller:
 
         parent_ref = None
         if image.parent is not None:
-            parent_ref = self._get_image_ref(image.parent)
+            parent_ref = self.get_image_ref(image.parent)
             if parent_ref is None:
                 raise CloudSubmitError(
                     f'Could not find reference for image {image.parent}.')
@@ -176,7 +176,7 @@ class Controller:
             self.build(images, build_id=run_id, env=build_env)
             refs = {}
             for step in steps:
-                ref = self._get_image_ref(step.image)
+                ref = self.get_image_ref(step.image)
                 if ref is None:
                     raise CloudSubmitError(
                         f'Could not find image ref for image {step.image}')

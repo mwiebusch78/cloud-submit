@@ -5,7 +5,7 @@ import datetime as dt
 import click
 import yaml
 
-from .utils import CloudSubmitError
+from .utils import CloudSubmitError, parse_image_ref
 from .controller import Controller
 from .images import BaseImage, ExecutionImage
 
@@ -334,8 +334,12 @@ def list_images(ctx, env, images, local, remote, build_ids):
                 tpe = 'execution'
             else:
                 raise ValueError('Unknown image type.')
-            data.append([i.name, tpe])
-        table = tabulate(data, header=['NAME', 'TYPE'])
+            ref = controller.get_image_ref(i.name)
+            tag = ''
+            if ref is not None:
+                registry, repo, tag, digest = parse_image_ref(ref)
+            data.append([i.name, tpe, tag])
+        table = tabulate(data, header=['NAME', 'TYPE', 'BUILD_ID'])
         if table:
             print(table)
 
@@ -360,9 +364,14 @@ def list_images(ctx, env, images, local, remote, build_ids):
     ),
 )
 @click.option(
+    '--local', '-l',
+    is_flag=True,
+    help='Remove images only locally.',
+)
+@click.option(
     '--remote', '-r',
     is_flag=True,
-    help='Remove images from remote registry.',
+    help='Remove images only from remote registry.',
 )
 @click.option(
     '--build-ids', '-b',
@@ -374,23 +383,44 @@ def list_images(ctx, env, images, local, remote, build_ids):
     ),
 )
 @click.pass_context
-def list_images(ctx, env, images, remote, build_ids):
+def remove_images(ctx, env, images, local, remote, build_ids):
+    if local and remote:
+        abort('The flags --local and --remote are mutually exclusive.')
     init(ctx)
     config = ctx.obj['config']
     controller = ctx.obj['controller']
+
+    remove_local = True
+    remove_remote = True
+    if local:
+        remove_remote = False
+    if remote:
+        remove_local = False
 
     if images is not None:
         images = list(set(images.split(',')))
     if build_ids is not None:
         build_ids = list(set(build_ids.split(',')))
 
-    try:
-        refs = controller.list_image_refs(
-            images=images,
-            ids=build_ids,
-            env=env,
-            remote=remote,
-        )
-        controller.remove_image_refs(refs, remote=remote, env=env)
-    except CloudSubmitError as e:
-        abort(str(e))
+    if remove_local:
+        try:
+            refs = controller.list_image_refs(
+                images=images,
+                ids=build_ids,
+                env=env,
+                remote=False,
+            )
+            controller.remove_image_refs(refs, remote=False, env=env)
+        except CloudSubmitError as e:
+            abort(str(e))
+    if remove_remote:
+        try:
+            refs = controller.list_image_refs(
+                images=images,
+                ids=build_ids,
+                env=env,
+                remote=True,
+            )
+            controller.remove_image_refs(refs, remote=True, env=env)
+        except CloudSubmitError as e:
+            abort(str(e))

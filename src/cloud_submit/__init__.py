@@ -20,4 +20,5 @@ from .utils import (
     ensure_path,
     build_docker_mount_option,
     run_command,
+    parse_image_ref,
 )

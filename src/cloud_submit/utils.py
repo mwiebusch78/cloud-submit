@@ -3,6 +3,7 @@ import shutil
 import shlex
 import subprocess
 import datetime as dt
+import re
 
 
 class CloudSubmitError(Exception):
@@ -51,6 +52,7 @@ def build_docker_mount_option(source, dest):
         f'volume-subpath={subpath}'
     )
 
+
 def run_command(command, **kwargs):
     try:
         result = subprocess.run(command, **kwargs)
@@ -58,8 +60,25 @@ def run_command(command, **kwargs):
         raise CloudSubmitError('Aborted on user request.')
     if result.returncode != 0:
         msg = (
-            f'Command exited with status code {self._status_code}:\n'
+            f'Command exited with status code {result.returncode}:\n'
             + ' '.join([shlex.quote(part) for part in command])
         )
         raise CloudSubmitError(msg)
     return result
+
+
+_IMAGE_REF_REGEX = re.compile(
+    '^([a-zA-Z0-9-.:]+)/([a-z0-9-_./]+):([a-zA-Z0-9-_.]+)(@([a-zA-Z0-9:]+))?$'
+)
+
+
+def parse_image_ref(ref):
+    match = _IMAGE_REF_REGEX.match(ref)
+    if match is None:
+        raise CloudSubmitError(f'Could not parse image ref {ref}')
+    return (
+        match.group(1),
+        match.group(2),
+        match.group(3),
+        match.group(5),
+    )

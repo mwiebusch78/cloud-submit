@@ -6,11 +6,12 @@ import json
 import datetime as dt
 
 from cloud_submit import (
-    EnvironmentHandler,
+    LocalEnv,
     ensure_path,
     CloudSubmitError,
     build_docker_mount_option,
     run_command,
+    parse_image_ref,
 )
 
 
@@ -18,7 +19,7 @@ def build_artifacts_mount_option(path, scope):
     return build_docker_mount_option(path, f'/root/artifacts/{scope}')
 
 
-class LocalAWSEnv(EnvironmentHandler):
+class LocalAWSEnv(LocalEnv):
     def __init__(
         self,
         name,
@@ -33,8 +34,7 @@ class LocalAWSEnv(EnvironmentHandler):
         docker_login_refresh_hours=6,
         aws_command='aws',
     ):
-        EnvironmentHandler.__init__(
-            self,
+        super().__init__(
             name=name,
             project=project,
             user=user,
@@ -90,7 +90,7 @@ class LocalAWSEnv(EnvironmentHandler):
         )
 
     def build_image(self, path, image, build_id):
-        ref = EnvironmentHandler.build_image(self, path, image, build_id)
+        ref = super().build_image(path, image, build_id)
         self._docker_login()
 
         # push image
@@ -139,44 +139,23 @@ class LocalAWSEnv(EnvironmentHandler):
         return tags
 
     def remove_remote_image_refs(self, refs):
-        raise CloudSubmitError(
-            'Removing remote images is not supported by local environment.'
-        )
+        tags = {}
+        for ref in refs:
+            registry, repo, tag, digest = parse_image_ref(ref)
+            if registry != self._docker_registry:
+                raise CloudSubmitError(
+                    f'Cannot delete image ref {ref} due to unknown registry.')
+            tags[repo] = tags.get(repo, [])
+            tags[repo].append(tag)
 
-    def submit(self, pipeline, image_refs, timestamp, run_id):
-        artifacts_project_path = os.path.join('artifacts', 'shared')
-        artifacts_user_path = os.path.join(
-            'artifacts', 'users', self._user, 'shared')
-        artifacts_run_path = os.path.join(
-            'artifacts', 'users', self._user, 'runs', pipeline.name, run_id)
-        ensure_path(artifacts_project_path)
-        ensure_path(artifacts_user_path)
-        ensure_path(artifacts_run_path)
-        for step in pipeline.steps:
-            if step.name not in image_refs:
-                continue
-            ref = image_refs[step.name]
-
-            worker_indices = [-1]
-            if step.num_workers is not None:
-                worker_indices = range(step.num_workers)
-
-            for worker_index in worker_indices:
-                run_command([
-                    'docker',
-                    'run',
-                    '--rm',
-                    '--mount',
-                    build_artifacts_mount_option(
-                        artifacts_project_path, 'project'),
-                    '--mount',
-                    build_artifacts_mount_option(artifacts_user_path, 'user'),
-                    '--mount',
-                    build_artifacts_mount_option(artifacts_run_path, 'run'),
-                    '--env', f'CSUB_TIMESTAMP={timestamp.isoformat()}',
-                    '--env', f'CSUB_RUN_ID={run_id}',
-                    '--env', f'CSUB_WORKER_INDEX={worker_index}',
-                    ref,
-                    pipeline.name,
-                    step.name,
-                ])
+        for repo, tag_list in tags.items():
+            run_command([
+                self._aws_command,
+                'ecr',
+                'batch-delete-image',
+                '--region', self._aws_region,
+                '--profile', self._aws_profile,
+                '--repository-name', repo,
+                '--image-ids',
+                *[f'imageTag={tag}' for tag in tag_list],
+            ])
