@@ -2,29 +2,13 @@ import os
 import shutil
 import datetime as dt
 
-from .utils import ensure_path, CloudSubmitError
-from .images import ExecutionImage
+from .utils import ensure_path, CloudSubmitError, parse_image_ref
+from .images import ExecutionImage, BaseImage
 from .execution.config import to_utc
 
 class Controller:
     def __init__(self, config):
         self._config = config
-
-    def get_image_ref(self, image_name):
-        ensure_path('images')
-        path = os.path.join('images', image_name)
-        try:
-            with open(path, 'r') as stream:
-                ref = stream.read().strip()
-        except FileNotFoundError:
-            return None
-        return ref
-
-    def _save_image_ref(self, image_name, ref):
-        ensure_path('images')
-        path = os.path.join('images', image_name)
-        with open(path, 'w') as stream:
-            stream.write(ref)
 
     def _install_execution_modules(self, path):
         sourcedir = os.path.dirname(__file__)
@@ -48,7 +32,7 @@ class Controller:
 
     def _build_image(self, image, build_id, env, rebuild=False):
         if not rebuild:
-            ref = self.get_image_ref(image.name)
+            ref = env.get_image_ref(image)
             if ref is not None:
                 print(f'Using existing build of {image.name}: {ref}')
                 return ref
@@ -68,7 +52,11 @@ class Controller:
 
         parent_ref = None
         if image.parent is not None:
-            parent_ref = self.get_image_ref(image.parent)
+            parent_image = self._config.images.get(image.parent)
+            if parent_image is None:
+                raise CloudSubmitError(
+                    f'Could not find declaration for image {image.parent}.')
+            parent_ref = env.get_image_ref(parent_image)
             if parent_ref is None:
                 raise CloudSubmitError(
                     f'Could not find reference for image {image.parent}.')
@@ -82,7 +70,7 @@ class Controller:
                 'build_image method of environment handler did not '
                 'return a valid image reference.'
             )
-        self._save_image_ref(image.name, ref)
+        env.save_image_ref(image, ref)
 
     def build(self, images, build_id=None, env=None):
         now = dt.datetime.now(tz=dt.UTC)
@@ -135,12 +123,47 @@ class Controller:
                 results.append(':'.join([repo_name, tag]))
         return results
 
+    def list_images(self, images=None, env=None):
+        env_handler = self._config.get_build_env(env)
+        if images is not None:
+            images = set(images)
+        result = []
+        with self._config.in_project_root():
+            for i in self._config.images.values():
+                if images is not None and i.name not in images:
+                    continue
+                if isinstance(i, BaseImage):
+                    tpe = 'base'
+                elif isinstance(i, ExecutionImage):
+                    tpe = 'execution'
+                else:
+                    raise ValueError('Unknown image type.')
+                ref = env_handler.get_image_ref(i)
+                result.append((i.name, tpe, ref))
+        return result
+
     def remove_image_refs(self, refs, remote=False, env=None):
         env_handler = self._config.get_build_env(env)
         if remote:
             env_handler.remove_remote_image_refs(refs)
         else:
             env_handler.remove_local_image_refs(refs)
+
+    def set_image(self, image_name, ref, env=None):
+        env_handler = self._config.get_build_env(env)
+        image = self._config.images.get(image_name)
+        if image is None:
+            raise CloudSubmitError(f'Unknow image name {image_name}.')
+        with self._config.in_project_root():
+            env_handler.save_image_ref(image, ref)
+
+    def unset_image(self, image_name, env=None):
+        env_handler = self._config.get_build_env(env)
+        image = self._config.images.get(image_name)
+        if image is None:
+            raise CloudSubmitError(f'Unknow image name {image_name}.')
+        with self._config.in_project_root():
+            env_handler.clear_image_ref(image)
 
     def submit(
         self,
@@ -176,7 +199,11 @@ class Controller:
             self.build(images, build_id=run_id, env=build_env)
             refs = {}
             for step in steps:
-                ref = self.get_image_ref(step.image)
+                image = self._config.images.get(step.image)
+                if image is None:
+                    raise CloudSubmitError(
+                        f'Cannot find declaration for image {step.image}.')
+                ref = env_handler.get_image_ref(image)
                 if ref is None:
                     raise CloudSubmitError(
                         f'Could not find image ref for image {step.image}')

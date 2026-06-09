@@ -1,9 +1,10 @@
+import os
 import sys
 import datetime as dt
 import uuid
 import subprocess
 
-from .utils import CloudSubmitError, run_command
+from .utils import CloudSubmitError, run_command, ensure_path
 from .images import BaseImage, ExecutionImage
 from .execution.config import to_utc
 
@@ -40,6 +41,40 @@ class EnvironmentHandler:
 
     def install_execution_handler(self, path):
         raise NotImplementedError
+
+    def _get_image_ref_path(self, image):
+        if isinstance(image, BaseImage):
+            image_name = image.name
+        elif isinstance(image, ExecutionImage):
+            image_name = '.'.join([image.name, self.name])
+        else:
+            raise ValueError(f'Cannot handle image of type {type(image)}')
+
+        return os.path.join('images', self._user, image_name)
+
+    def get_image_ref(self, image):
+        ensure_path(os.path.join('images', self._user))
+        path = self._get_image_ref_path(image)
+        try:
+            with open(path, 'r') as stream:
+                ref = stream.read().strip()
+        except FileNotFoundError:
+            return None
+        return ref
+
+    def save_image_ref(self, image, ref):
+        ensure_path(os.path.join('images', self._user))
+        path = self._get_image_ref_path(image)
+        with open(path, 'w') as stream:
+            stream.write(ref)
+
+    def clear_image_ref(self, image):
+        ensure_path(os.path.join('images', self._user))
+        path = self._get_image_ref_path(image)
+        try:
+            os.remove(path)
+        except FileNotFoundError:
+            pass
 
     def get_image_repo_name(self, image):
         prefix = []

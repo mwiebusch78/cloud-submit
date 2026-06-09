@@ -5,9 +5,8 @@ import datetime as dt
 import click
 import yaml
 
-from .utils import CloudSubmitError, parse_image_ref
+from .utils import CloudSubmitError
 from .controller import Controller
-from .images import BaseImage, ExecutionImage
 
 
 def abort(msg):
@@ -324,22 +323,12 @@ def list_images(ctx, env, images, local, remote, build_ids):
         for ref in results:
             print(ref)
     else:
-        data = []
-        for i in config.images.values():
-            if images is not None and i.name not in images:
-                continue
-            if isinstance(i, BaseImage):
-                tpe = 'base'
-            elif isinstance(i, ExecutionImage):
-                tpe = 'execution'
-            else:
-                raise ValueError('Unknown image type.')
-            ref = controller.get_image_ref(i.name)
-            tag = ''
-            if ref is not None:
-                registry, repo, tag, digest = parse_image_ref(ref)
-            data.append([i.name, tpe, tag])
-        table = tabulate(data, header=['NAME', 'TYPE', 'BUILD_ID'])
+        data = controller.list_images(images=images)
+        data = [
+            (name, tpe, ('' if ref is None else ref.split('@')[0]))
+            for name, tpe, ref in data
+        ]
+        table = tabulate(data, header=['NAME', 'TYPE', 'REF'])
         if table:
             print(table)
 
@@ -424,3 +413,40 @@ def remove_images(ctx, env, images, local, remote, build_ids):
             controller.remove_image_refs(refs, remote=True, env=env)
         except CloudSubmitError as e:
             abort(str(e))
+
+
+@images.command(
+    name='set',
+    help='Set the image reference for image IMAGE to REF.'
+)
+@click.option(
+    '--env', '-e',
+    type=str,
+    default=None,
+    help='The name of the environment to use.',
+)
+@click.argument('image')
+@click.argument('ref')
+@click.pass_context
+def set_image(ctx, env, image, ref):
+    init(ctx)
+    controller = ctx.obj['controller']
+    controller.set_image(image, ref, env=env)
+
+
+@images.command(
+    name='unset',
+    help='Clear the image reference for image IMAGE.'
+)
+@click.option(
+    '--env', '-e',
+    type=str,
+    default=None,
+    help='The name of the environment to use.',
+)
+@click.argument('image')
+@click.pass_context
+def unset_image(ctx, env, image):
+    init(ctx)
+    controller = ctx.obj['controller']
+    controller.unset_image(image, env=env)
