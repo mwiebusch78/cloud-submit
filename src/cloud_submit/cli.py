@@ -124,15 +124,57 @@ def main(ctx, project_root, user):
     ctx.obj['config'] = None
 
 
+# pipelines subcommand
 
-@main.command(
-    name='submit',
+
+@main.group('pipelines', help='View and execute pipelines.')
+def pipelines():
+    pass
+
+
+@pipelines.command(
+    name='list',
+    help="""List available pipelines and their steps.
+
+If one or more PIPELINES arguments are given those pipelines will be 
+listed (if they exist). Otherwise all available pipelines are listed.
+""",
+)
+@click.option(
+    '--steps', '-s',
+    is_flag=True,
+    help='Also list the steps of each pipeline.'
+)
+@click.argument(
+    'pipelines',
+    type=str,
+    nargs=-1,
+)
+@click.pass_context
+def list_pipelines(ctx, steps, pipelines):
+    init(ctx)
+    config = ctx.obj['config']
+    if pipelines:
+        pipelines = set(pipelines)
+    else:
+        pipelines = None
+    for pipeline in config.pipelines.values():
+        if pipelines is None or pipeline.name in pipelines:
+            print(pipeline.name)
+            if steps:
+                for step in pipeline.steps:
+                    print('    ' + step.name)
+
+
+@pipelines.command(
+    name='run',
     help="""Run a pipeline (or a part of it).
 
 Run the pipeline PIPELINE. Specify STEPS to select a subset of steps to run.
 STEPS should be a comma-separated list of step names or step ranges of the form
 start:end where start and end are step names. If steps is not specified all
-steps are executed.
+steps are executed. By default, all *execution* images needed for the run are
+re-built (but you can use --no-rebuild to prevent that).
 """
 )
 @click.option(
@@ -165,7 +207,7 @@ steps are executed.
         'The timestamp used as the submit time of the pipeline. '
         'If not specified the default submit timestamp of the pipeline is '
         'used. If that is not specified either the current time is used. '
-        'You can use this option to simulate run submitted at a different '
+        'You can use this option to simulate runs submitted at a different '
         'time. The value must be in ISO format (YYYY-MM-DDTHH:MM:SS). '
         'You can also use "-t now" to use the current time irrespective of '
         'the pipeline default.'
@@ -182,7 +224,7 @@ steps are executed.
     default=None,
 )
 @click.pass_context
-def submit(ctx, env, build_env, run_id, timestamp, pipeline, steps):
+def run(ctx, env, build_env, run_id, timestamp, pipeline, steps):
     init(ctx)
     config = ctx.obj['config']
     controller = ctx.obj['controller']
@@ -197,7 +239,7 @@ def submit(ctx, env, build_env, run_id, timestamp, pipeline, steps):
 
     try:
         steps = get_steps(pipeline, steps)
-        controller.submit(
+        controller.run(
             pipeline.name,
             steps=steps,
             run_id=run_id,
@@ -436,7 +478,7 @@ def set_image(ctx, env, image, ref):
 
 @images.command(
     name='unset',
-    help='Clear the image reference for image IMAGE.'
+    help='Clear the image references for IMAGES.'
 )
 @click.option(
     '--env', '-e',
@@ -444,9 +486,18 @@ def set_image(ctx, env, image, ref):
     default=None,
     help='The name of the environment to use.',
 )
-@click.argument('image')
+@click.option(
+    '--all', '-a', 'unset_all',
+    is_flag=True,
+    help='Clear all image references.',
+)
+@click.argument('images', type=str, nargs=-1)
 @click.pass_context
-def unset_image(ctx, env, image):
+def unset_image(ctx, env, unset_all, images):
     init(ctx)
+    config = ctx.obj['config']
     controller = ctx.obj['controller']
-    controller.unset_image(image, env=env)
+    if unset_all:
+        images = list(config.images.keys())
+    for image in images:
+        controller.unset_image(image, env=env)

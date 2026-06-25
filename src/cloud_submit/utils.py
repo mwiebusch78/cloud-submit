@@ -56,6 +56,11 @@ def build_docker_mount_option(source, dest):
 def run_command(command, **kwargs):
     try:
         result = subprocess.run(command, **kwargs)
+    except FileNotFoundError:
+        raise CloudSubmitError(
+            'Error. Command not found when trying to execute:\n'
+            + ' '.join([shlex.quote(part) for part in command])
+        )
     except KeyboardInterrupt:
         raise CloudSubmitError('Aborted on user request.')
     if result.returncode != 0:

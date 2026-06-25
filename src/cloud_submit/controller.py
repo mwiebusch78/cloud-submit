@@ -165,7 +165,7 @@ class Controller:
         with self._config.in_project_root():
             env_handler.clear_image_ref(image)
 
-    def submit(
+    def run(
         self,
         pipeline,
         steps=None,
