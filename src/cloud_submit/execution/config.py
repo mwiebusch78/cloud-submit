@@ -70,34 +70,36 @@ class Artifact:
 class ArtifactLocation:
     def __init__(
         self,
-        artifact,
-        location_type,
+        artifact_name,
+        is_local,
         sync=True,
     ):
-        self.artifact = artifact
-        if location_type not in ['local', 'remote']:
-            raise ValueError(f'Unknown location type {repr(location_type)}')
-        self.location_type = location_type
+        self.artifact_name = str(artifact_name)
+        self.is_local = bool(is_local)
         self.sync = bool(sync)
-
-    @property
-    def nosync(self):
-        return ArtifactLocation(self.artifact, self.location_type, sync=False)
 
     def to_dict(self):
         return {
-            'artifact': self.artifact.to_dict(),
-            'location_type': self.location_type,
+            'artifact_name': self.artifact_name,
+            'is_local': self.is_local,
             'sync': self.sync
         }
 
     @staticmethod
     def from_dict(obj):
         return ArtifactLocation(
-            Artifact.from_dict(obj['artifact']),
-            obj['location_type'],
+            obj['artifact_name'],
+            obj['is_local'],
             sync=obj['sync'],
         )
+
+
+def local(name, sync=True):
+    return ArtifactLocation(name, is_local=True, sync=sync)
+
+
+def remote(name, sync=True):
+    return ArtifactLocation(name, is_local=False, sync=sync)
 
 
 class Spec:
@@ -237,3 +239,14 @@ def read_pipelines():
     for name, steps in obj.items():
         pipelines[name] = [Step.from_dict(s) for s in steps]
     return pipelines
+
+
+def read_artifacts():
+    path = os.path.join(os.path.dirname(__file__), 'artifacts.json')
+    obj = read_json(path)
+    artifacts = {}
+    for artifact in obj['artifacts']:
+        artifact = Artifact.from_dict(artifact)
+        artifacts[artifact.name] = artifact
+    return artifacts
+

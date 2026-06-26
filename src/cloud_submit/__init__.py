@@ -10,6 +10,8 @@ from .execution.config import (
     Spec,
     Step,
     Pipeline,
+    local,
+    remote,
 )
 from .images import Image, BaseImage, ExecutionImage
 from .environment_handler import EnvironmentHandler

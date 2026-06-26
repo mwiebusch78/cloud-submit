@@ -3,7 +3,7 @@ import importlib
 import copy
 import datetime as dt
 
-from .config import read_pipelines
+from .config import read_pipelines, read_artifacts
 from .execution_handler import create_execution_handler
 
 
@@ -17,11 +17,24 @@ if __name__ == '__main__':
     steps = set(sys.argv[2].split(','))
 
     pipelines = read_pipelines()
+    artifacts = read_artifacts()
     try:
         pipeline = pipelines[pipeline_name]
     except KeyError:
         raise SystemExit(
             f'Invalid pipeline name: {pipeline_name}')
+
+    def get_artifact(name):
+        try:
+            return artifacts[name]
+        except KeyError:
+            raise SystemExit(f'Invalid artifact name {name}')
+
+    def get_artifact_path(eh, loc):
+        artifact = get_artifact(loc.artifact_name)
+        if loc.is_local:
+            return eh.get_local_artifact_path(artifact)
+        return eh.get_remote_artifact_path(artifact)
 
     eh = create_execution_handler()
     timestamp = eh.get_submit_timestamp()
@@ -35,14 +48,14 @@ if __name__ == '__main__':
             continue
         print(f'Executing step: {step.name}')
         for loc in step.temporaries.values():
-            eh.clear_artifact(loc.artifact)
+            eh.clear_artifact(get_artifact(loc.artifact_name))
         for loc in step.outputs.values():
-            eh.clear_artifact(loc.artifact)
+            eh.clear_artifact(get_artifact(loc.artifact_name))
         for loc in step.inputs.values():
-            if loc.location_type == 'local' and \
-                    loc.artifact.name not in synced_artifacts:
-                eh.sync_artifact_location(loc)
-                synced_artifacts.add(loc.artifact.name)
+            if loc.is_local and loc.artifact_name not in synced_artifacts:
+                artifact = get_artifact(loc.artifact_name)
+                eh.download_artifact(artifact)
+                synced_artifacts.add(loc.artifact_name)
 
         module_name, function_name = step.function.split(':')
         module = importlib.import_module(module_name)
@@ -50,11 +63,11 @@ if __name__ == '__main__':
 
         kwargs = copy.deepcopy(step.params)
         for kw, loc in step.inputs.items():
-            kwargs[kw] = eh.get_artifact_location(loc)
+            kwargs[kw] = get_artifact_path(eh, loc)
         for kw, loc in step.outputs.items():
-            kwargs[kw] = eh.get_artifact_location(loc)
+            kwargs[kw] = get_artifact_path(eh, loc)
         for kw, loc in step.temporaries.items():
-            kwargs[kw] = eh.get_artifact_location(loc)
+            kwargs[kw] = get_artifact_path(eh, loc)
         if step.num_workers is not None:
             if worker_index < 0:
                 raise SystemExit(
@@ -71,12 +84,13 @@ if __name__ == '__main__':
             function(**kwargs)
         finally:
             remote_outputs = set(
-                l.artifact.name for l in step.outputs.values()
-                if l.location_type == 'remote'
+                l.artifact_name for l in step.outputs.values()
+                if not l.is_local
             )
             for loc in step.outputs.values():
-                if loc.location_type == 'local':
-                    synced_artifacts.add(loc.artifact.name)
-                    if loc.artifact.name not in remote_outputs:
-                        eh.sync_artifact_location(loc.artifact.remote)
+                artifact = get_artifact(loc.artifact_name)
+                if loc.is_local:
+                    synced_artifacts.add(loc.artifact_name)
+                    if loc.artifact_name not in remote_outputs:
+                        eh.upload_artifact(artifact)
 

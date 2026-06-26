@@ -36,6 +36,7 @@ class Config:
         user_name,
         project_root=None,
         images=None,
+        artifacts=None,
         pipelines=None,
         environments=None,
         build_default=None,
@@ -46,6 +47,7 @@ class Config:
         self.project_root = project_root
         self.environments = _dictify(environments, 'environment')
         self.images = _dictify(images, 'image')
+        self.artifacts = _dictify(artifacts, 'artifact')
         self.pipelines = _dictify(pipelines, 'pipeline')
         self.build_default = build_default
         self.submit_default = submit_default
@@ -97,11 +99,36 @@ class Config:
                         f'{repr(pipeline_name)} requires image '
                         f'{repr(step.image)}, which is not an execution image.'
                     )
+                for a in step.inputs.values():
+                    if a.artifact_name not in self.artifacts:
+                        raise ConfigError(
+                            f'Step {repr(step.name)} in pipeline '
+                            f'{repr(pipeline_name)} uses undeclared '
+                            f'input artifact {repr(a.artifact_name)} '
+                        )
+                for a in step.outputs.values():
+                    if a.artifact_name not in self.artifacts:
+                        raise ConfigError(
+                            f'Step {repr(step.name)} in pipeline '
+                            f'{repr(pipeline_name)} uses undeclared '
+                            f'output artifact {repr(a.artifact_name)} '
+                        )
+                for a in step.temporaries.values():
+                    if a.artifact_name not in self.artifacts:
+                        raise ConfigError(
+                            f'Step {repr(step.name)} in pipeline '
+                            f'{repr(pipeline_name)} uses undeclared '
+                            f'temporary artifact {repr(a.artifact_name)} '
+                        )
 
     def export_pipelines(self, path):
         obj = {}
         for name, pipeline in self.pipelines.items():
             obj[name] = [step.to_dict() for step in pipeline.steps]
+        write_json(obj, path)
+
+    def export_artifacts(self, path):
+        obj = {'artifacts': [a.to_dict() for a in self.artifacts.values()]}
         write_json(obj, path)
 
     def _get_env_handler(self, env, purpose):

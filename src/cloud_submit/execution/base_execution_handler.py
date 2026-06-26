@@ -7,27 +7,27 @@ class BaseExecutionHandler:
     def __init__(self):
         pass
 
-    def get_artifact_location(self, artifact_location):
-        if artifact_location.location_type != 'local':
+    def get_local_artifact_path(self, artifact):
+        if artifact.kind != 'file':
             raise RuntimeError(
-                'Cannot construct location for non-local artifact '
-                f'{artifact_location.artifact.name}.'
+                f'Cannot construct local path for artifact {artifact.name} '
+                f'of kind {artifact.kind}'
             )
-        if artifact_location.artifact.kind != 'file':
+        if artifact.scope not in ['run', 'user', 'project']:
             raise RuntimeError(
-                f'Cannot construct location for artifact '
-                f'{artifact_location.artifact.name} '
-                f'of kind {artifact_location.artifact.kind}'
-            )
-        if artifact_location.artifact.scope not in ['run', 'user', 'project']:
-            raise RuntimeError(
-                f'Invalid scope {artifact_location.artifact.scope} '
-                f'for artifact {artifact_location.artifact.name} '
+                f'Invalid scope {artifact.scope} '
+                f'for artifact {artifact.name} '
             )
         return os.path.join(
             '/root/artifacts',
-            artifact_location.artifact.scope,
-            artifact_location.artifact.name,
+            artifact.scope,
+            artifact.name,
+        )
+
+    def get_remote_artifact_path(self, artifact):
+        raise RuntimeError(
+            'Cannot construct remote path for artifact '
+            f'{artifact.name}.'
         )
 
     def clear_artifact(self, artifact):
@@ -36,15 +36,18 @@ class BaseExecutionHandler:
                 f'Cannot clear artifact {artifact.name} '
                 f'of kind {artifact.kind}'
             )
-        path = self.get_artifact_location(artifact.local)
+        path = self.get_local_artifact_path(artifact)
         shutil.rmtree(path, ignore_errors=True)
         try:
             os.remove(path)
         except FileNotFoundError:
             pass
 
-    def sync_artifact_location(self, artifact_location):
-        print(f'Skipping sync of artifact {artifact_location.artifact.name}.')
+    def download_artifact(self, artifact):
+        print(f'Skipping download of artifact {artifact.name}.')
+
+    def upload_artifact(self, artifact):
+        print(f'Skipping upload of artifact {artifact.name}.')
 
     def get_submit_timestamp(self):
         return dt.datetime.fromisoformat(os.environ['CSUB_TIMESTAMP'])

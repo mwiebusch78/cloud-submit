@@ -29,6 +29,7 @@ class Controller:
             os.path.join(path, 'execute.py'),
         )
         self._config.export_pipelines(os.path.join(path, 'pipelines.json'))
+        self._config.export_artifacts(os.path.join(path, 'artifacts.json'))
 
     def _build_image(self, image, build_id, env, rebuild=False):
         if not rebuild:
