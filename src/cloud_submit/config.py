@@ -40,7 +40,7 @@ class Config:
         pipelines=None,
         environments=None,
         build_default=None,
-        submit_default=None,
+        run_default=None,
     ):
         self.project_name = project_name
         self.user_name = user_name
@@ -50,7 +50,7 @@ class Config:
         self.artifacts = _dictify(artifacts, 'artifact')
         self.pipelines = _dictify(pipelines, 'pipeline')
         self.build_default = build_default
-        self.submit_default = submit_default
+        self.run_default = run_default
 
         if self.project_root is None:
             self.project_root = os.getcwd()
@@ -68,8 +68,8 @@ class Config:
         firstenv = next(iter(self.environments.keys()))
         if self.build_default is None:
             self.build_default = firstenv
-        if self.submit_default is None:
-            self.submit_default = firstenv
+        if self.run_default is None:
+            self.run_default = firstenv
 
         # check if default environments exist
         if self.build_default not in self.environments:
@@ -77,9 +77,9 @@ class Config:
                 f'Default build environment {repr(self.build_default)} '
                 'not found in environment list.'
             )
-        if self.submit_default not in self.environments:
+        if self.run_default not in self.environments:
             raise ConfigError(
-                f'Default submit environment {repr(self.submit_default)} '
+                f'Default run environment {repr(self.run_default)} '
                 'not found in environment list.'
             )
 
@@ -135,8 +135,8 @@ class Config:
         if env is None:
             if purpose == 'build':
                 env = self.build_default
-            elif purpose == 'submit':
-                env = self.submit_default
+            elif purpose == 'run':
+                env = self.run_default
             else:
                 raise ValueError(f'Invalid `purpose` argument {repr(purpose)}.')
         try:
@@ -147,8 +147,8 @@ class Config:
     def get_build_env(self, env=None):
         return self._get_env_handler(env, 'build')
 
-    def get_submit_env(self, env=None):
-        return self._get_env_handler(env, 'submit')
+    def get_run_env(self, env=None):
+        return self._get_env_handler(env, 'run')
 
     def get_image_ancestry(self, image_name):
         images = []

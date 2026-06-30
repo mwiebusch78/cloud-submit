@@ -154,7 +154,7 @@ class Controller:
         env_handler = self._config.get_build_env(env)
         image = self._config.images.get(image_name)
         if image is None:
-            raise CloudSubmitError(f'Unknow image name {image_name}.')
+            raise CloudSubmitError(f'Unknown image name {image_name}.')
         with self._config.in_project_root():
             env_handler.save_image_ref(image, ref)
 
@@ -162,9 +162,48 @@ class Controller:
         env_handler = self._config.get_build_env(env)
         image = self._config.images.get(image_name)
         if image is None:
-            raise CloudSubmitError(f'Unknow image name {image_name}.')
+            raise CloudSubmitError(f'Unknown image name {image_name}.')
         with self._config.in_project_root():
             env_handler.clear_image_ref(image)
+
+    def list_artifacts(
+        self,
+        artifact_names=None,
+        run_ids=None,
+        remote=False,
+        env=None,
+    ):
+        if artifact_names is None:
+            artifact_names = list(self._config.artifacts.keys())
+        artifacts = []
+        for name in artifact_names:
+            try:
+                artifact = self._config.artifacts[name]
+            except KeyError:
+                raise CloudSubmitError(f'Unknown artifact name: {name}.')
+            artifacts.append(artifact.copy())
+
+        env_handler = self._config.get_run_env(env)
+        with self._config.in_project_root():
+            if remote:
+                ids = env_handler.list_remote_artifacts(
+                    artifacts, run_ids=run_ids)
+                get_artifact_path = env_handler.get_remote_artifact_path
+            else:
+                ids = env_handler.list_local_artifacts(
+                    artifacts, run_ids=run_ids)
+                get_artifact_path = env_handler.get_local_artifact_path
+        results = []
+        for artifact, id_list in zip(artifacts, ids):
+            for run_id in id_list:
+                results.append((
+                    artifact.name,
+                    artifact.kind,
+                    artifact.scope,
+                    run_id,
+                    get_artifact_path(artifact, run_id=run_id),
+                ))
+        return results
 
     def run(
         self,
@@ -210,4 +249,4 @@ class Controller:
                         f'Could not find image ref for image {step.image}')
                 refs[step.name] = ref
 
-            env_handler.submit(pipeline, refs, timestamp, run_id)
+            env_handler.run_pipeline(pipeline, refs, timestamp, run_id)

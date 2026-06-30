@@ -54,12 +54,22 @@ class LocalEnv(EnvironmentHandler):
             'Removing remote images is not supported by local environment.'
         )
 
-    def submit(self, pipeline, image_refs, timestamp, run_id):
+    def get_remote_artifact_path(self, artifact, run_id=None):
+        raise CloudSubmitError(
+            'Remote artifacts are not supported by local environment.'
+        )
+
+    def list_remote_artifacts(self, artifacts, run_ids=None):
+        raise CloudSubmitError(
+            'Remote artifacts are not supported by local environment.'
+        )
+
+    def run_pipeline(self, pipeline, image_refs, timestamp, run_id):
         artifacts_project_path = os.path.join('artifacts', 'shared')
         artifacts_user_path = os.path.join(
             'artifacts', 'users', self._user, 'shared')
         artifacts_run_path = os.path.join(
-            'artifacts', 'users', self._user, 'runs', pipeline.name, run_id)
+            'artifacts', 'users', self._user, 'runs', run_id)
         ensure_path(artifacts_project_path)
         ensure_path(artifacts_user_path)
         ensure_path(artifacts_run_path)

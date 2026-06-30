@@ -52,6 +52,10 @@ def tabulate(data, header=None):
         return ''
     if header is not None:
         data = [header] + data
+    data = [
+        [('' if cell is None else cell) for cell in row]
+        for row in data
+    ]
     maxlen = None
     for row in data:
         if maxlen is None:
@@ -252,6 +256,7 @@ def run(ctx, env, build_env, run_id, timestamp, pipeline, steps):
 
 
 # images subgroup
+
 
 @main.group('images', help='Manage docker images.')
 def images():
@@ -501,3 +506,94 @@ def unset_image(ctx, env, unset_all, images):
         images = list(config.images.keys())
     for image in images:
         controller.unset_image(image, env=env)
+
+
+# artifacts subgroup
+
+
+@main.group('artifacts', help='Manage artifacts.')
+def artifacts():
+    pass
+
+
+@artifacts.command(
+    name='list',
+    help="""List local or remote artifacts.
+
+If neither --local nor --remote are specified this just lists the declared
+artifacts for the project. Otherwise it lists the artifacts that are stored
+locally or remotely (from different runs).
+""",
+)
+@click.option(
+    '--env', '-e',
+    type=str,
+    default=None,
+    help='The name of the environment to use for listing artifacts.',
+)
+@click.option(
+    '--artifacts', '-a',
+    type=str,
+    default=None,
+    help=(
+        'Comma-separated list of names for the artifacts to show. '
+        'If absent, all declared artifacts are shown.'
+    ),
+)
+@click.option(
+    '--local',
+    is_flag=True,
+    help='Show local artifact paths.',
+)
+@click.option(
+    '--remote',
+    is_flag=True,
+    help='Show remote artifact paths.',
+)
+@click.option(
+    '--run-ids', '-r',
+    type=str,
+    default=None,
+    help=(
+        'Comma-separated list of run IDs. Only artifacts associated with '
+        'the given runs are shown.'
+    ),
+)
+@click.pass_context
+def list_artifacts(ctx, env, artifacts, local, remote, run_ids):
+    if local and remote:
+        abort('The flags --local and --remote are mutually exclusive.')
+    init(ctx)
+    config = ctx.obj['config']
+    controller = ctx.obj['controller']
+
+    if artifacts is not None:
+        artifacts = sorted(set(artifacts.split(',')))
+    if run_ids is not None:
+        run_ids = sorted(set(run_ids.split(',')))
+
+    if local or remote:
+        try:
+            results = controller.list_artifacts(
+                artifact_names=artifacts,
+                run_ids=run_ids,
+                env=env,
+                remote=remote,
+            )
+        except CloudSubmitError as e:
+            abort(str(e))
+        table = tabulate(
+            results,
+            header=['NAME', 'KIND', 'SCOPE', 'RUN_ID', 'PATH'],
+        )
+        if table:
+            print(table)
+    else:
+        data = [
+            (a.name, a.kind, a.scope)
+            for a in config.artifacts.values()
+            if artifacts is None or a.name in artifacts
+        ]
+        table = tabulate(data, header=['NAME', 'KIND', 'SCOPE'])
+        if table:
+            print(table)

@@ -40,16 +40,8 @@ class Artifact:
             and other.scope == self.scope
         )
 
-    def _location(self, location_type):
-        return ArtifactLocation(self, location_type)
-
-    @property
-    def local(self):
-        return self._location('local')
-
-    @property
-    def remote(self):
-        return self._location('remote')
+    def copy(self):
+        return Artifact(self.name, kind=self.kind, scope=self.scope)
 
     def to_dict(self):
         return {

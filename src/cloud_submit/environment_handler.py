@@ -3,8 +3,9 @@ import sys
 import datetime as dt
 import uuid
 import subprocess
+import glob
 
-from .utils import CloudSubmitError, run_command, ensure_path
+from .utils import CloudSubmitError, run_command, ensure_path, clear_path
 from .images import BaseImage, ExecutionImage
 from .execution.config import to_utc
 
@@ -151,5 +152,88 @@ class EnvironmentHandler:
         ])
         return ref
 
-    def submit(self, pipeline, image_refs, timestamp, run_id):
+    def get_local_artifact_path(self, artifact, run_id=None):
+        if artifact.kind != 'file':
+            raise CloudSubmitError(
+                f'Cannot get path for local artifact {artifact.name}. '
+                "Only artifacts of kind 'file' are supported and this one "
+                f'is of kind {repr(artifact.kind)}.'
+            )
+        if artifact.scope == 'project':
+            return os.path.join('artifacts', 'shared', artifact.name)
+        elif artifact.scope == 'user':
+            return os.path.join(
+                'artifacts', 'users', self._user, 'shared', artifact.name)
+        elif artifact.scope == 'run':
+            if run_id is None:
+                raise ValueError(
+                    'You must specify `run_id` to get the path '
+                    "for an artifact with scope 'run'"
+                )
+            return os.path.join(
+                'artifacts', 'users', self._user, 'runs', run_id, artifact.name)
+        else:
+            raise CloudSubmitError(
+                f'Unknown scope {artifact.scope} for artifact {artifact.name}.')
+
+    def get_remote_artifact_path(self, artifact, run_id=None):
+        raise NotImplementedError
+
+    def list_local_artifacts(self, artifacts, run_ids=None):
+        if run_ids is not None:
+            run_ids = set(run_ids)
+
+        results = []
+        for artifact in artifacts:
+            if artifact.kind != 'file':
+                raise CloudSubmitError(
+                    f'Cannot list run IDs for local artifact {artifact.name}. '
+                    "Only artifacts of kind 'file' are supported and this one "
+                    f'is of kind {repr(artifact.kind)}.'
+                )
+            if artifact.scope == 'run':
+                pattern = os.path.join(
+                    'artifacts', 'users', self._user,
+                    'runs', '*', artifact.name,
+                )
+                files = glob.glob(pattern)
+                ids = [os.path.basename(os.path.dirname(f)) for f in files]
+                if run_ids is not None:
+                    ids = [i for i in ids if i in run_ids]
+            elif artifact.scope == 'user':
+                pattern = os.path.join(
+                    'artifacts', 'users', self._user, 'shared', artifact.name)
+                files = glob.glob(pattern)
+                if files:
+                    ids = [None]
+                else:
+                    ids = []
+            elif artifact.scope == 'project':
+                pattern = os.path.join(
+                    'artifacts', 'shared', artifact.name)
+                files = glob.glob(pattern)
+                if files:
+                    ids = [None]
+                else:
+                    ids = []
+            results.append(ids)
+        return results
+
+    def list_remote_artifacts(self, artifacts, run_ids=None):
+        raise NotImplementedError
+
+    def push_artifact(self, artifact, run_id):
+        raise NotImplementedError
+
+    def pull_artifact(self, artifact, run_id):
+        raise NotImplementedError
+
+    def remove_local_artifact(self, artifact, run_id):
+        path = self.get_local_artifact_path(artifact, run_id)
+        clear_path(path)
+
+    def remove_remote_artifact(self, artifact, run_id=None):
+        raise NotImplementedError
+
+    def run_pipeline(self, pipeline, image_refs, timestamp, run_id):
         raise NotImplementedError
