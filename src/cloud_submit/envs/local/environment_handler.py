@@ -56,7 +56,7 @@ class LocalEnv(EnvironmentHandler):
     def list_remote_artifacts(self, artifacts, run_ids=None):
         return [[] for a in artifacts]
 
-    def remove_remote_artifact(self, artifact, run_id=None):
+    def remove_remote_artifacts(self, artifacts, run_ids):
         pass
 
     def run_pipeline(self, pipeline, image_refs, timestamp, run_id):

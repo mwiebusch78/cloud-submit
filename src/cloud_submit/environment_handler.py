@@ -228,11 +228,13 @@ class EnvironmentHandler:
     def pull_artifact(self, artifact, run_id=None):
         raise NotImplementedError
 
-    def remove_local_artifact(self, artifact, run_id=None):
-        path = self.get_local_artifact_path(artifact, run_id)
-        clear_path(path)
+    def remove_local_artifacts(self, artifacts, run_ids):
+        for artifact, runs in zip(artifacts, run_ids):
+            for run_id in runs:
+                path = self.get_local_artifact_path(artifact, run_id)
+                clear_path(path)
 
-    def remove_remote_artifact(self, artifact, run_id=None):
+    def remove_remote_artifact(self, artifacts, run_ids):
         raise NotImplementedError
 
     def run_pipeline(self, pipeline, image_refs, timestamp, run_id):

@@ -186,36 +186,28 @@ class Controller:
         env_handler = self._config.get_run_env(env)
         with self._config.in_project_root():
             if remote:
-                ids = env_handler.list_remote_artifacts(
+                runs = env_handler.list_remote_artifacts(
                     artifacts, run_ids=run_ids)
-                get_artifact_path = env_handler.get_remote_artifact_path
             else:
-                ids = env_handler.list_local_artifacts(
+                runs = env_handler.list_local_artifacts(
                     artifacts, run_ids=run_ids)
-                get_artifact_path = env_handler.get_local_artifact_path
-        results = []
-        for artifact, id_list in zip(artifacts, ids):
-            for run_id in id_list:
-                results.append((
-                    artifact,
-                    run_id,
-                    get_artifact_path(artifact, run_id=run_id),
-                ))
-        return results
+
+        return [a.name for a in artifacts], runs
 
     def remove_artifacts(
         self,
-        artifacts,
+        artifact_names,
+        run_ids,
         remote=False,
         env=None,
     ):
         env_handler = self._config.get_run_env(env)
+        artifacts = [
+            self._config.artifacts[name].copy() for name in artifact_names]
         if remote:
-            remove_artifact = env_handler.remove_remote_artifact
+            env_handler.remove_remote_artifacts(artifacts, run_ids)
         else:
-            remove_artifact = env_handler.remove_local_artifact
-        for artifact, run_id, path in artifacts:
-            remove_artifact(artifact, run_id=run_id)
+            env_handler.remove_local_artifact(artifacts, run_ids)
 
     def run(
         self,
