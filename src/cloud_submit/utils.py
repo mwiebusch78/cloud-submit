@@ -53,7 +53,7 @@ def build_docker_mount_option(source, dest):
     )
 
 
-def run_command(command, **kwargs):
+def run_command(command, check=True, **kwargs):
     try:
         result = subprocess.run(command, **kwargs)
     except FileNotFoundError:
@@ -63,7 +63,7 @@ def run_command(command, **kwargs):
         )
     except KeyboardInterrupt:
         raise CloudSubmitError('Aborted on user request.')
-    if result.returncode != 0:
+    if check and result.returncode != 0:
         msg = (
             f'Command exited with status code {result.returncode}:\n'
             + ' '.join([shlex.quote(part) for part in command])

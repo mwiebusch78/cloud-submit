@@ -45,24 +45,19 @@ class LocalEnv(EnvironmentHandler):
             )
 
     def list_remote_image_tags(self, repo_name):
-        raise CloudSubmitError(
-            'Listing remote image refs is not supported by local environment.'
-        )
+        return []
 
     def remove_remote_image_refs(self, refs):
-        raise CloudSubmitError(
-            'Removing remote images is not supported by local environment.'
-        )
+        pass
 
     def get_remote_artifact_path(self, artifact, run_id=None):
-        raise CloudSubmitError(
-            'Remote artifacts are not supported by local environment.'
-        )
+        return ''
 
     def list_remote_artifacts(self, artifacts, run_ids=None):
-        raise CloudSubmitError(
-            'Remote artifacts are not supported by local environment.'
-        )
+        return [[] for a in artifacts]
+
+    def remove_remote_artifact(self, artifact, run_id=None):
+        pass
 
     def run_pipeline(self, pipeline, image_refs, timestamp, run_id):
         artifacts_project_path = os.path.join('artifacts', 'shared')

@@ -197,13 +197,25 @@ class Controller:
         for artifact, id_list in zip(artifacts, ids):
             for run_id in id_list:
                 results.append((
-                    artifact.name,
-                    artifact.kind,
-                    artifact.scope,
+                    artifact,
                     run_id,
                     get_artifact_path(artifact, run_id=run_id),
                 ))
         return results
+
+    def remove_artifacts(
+        self,
+        artifacts,
+        remote=False,
+        env=None,
+    ):
+        env_handler = self._config.get_run_env(env)
+        if remote:
+            remove_artifact = env_handler.remove_remote_artifact
+        else:
+            remove_artifact = env_handler.remove_local_artifact
+        for artifact, run_id, path in artifacts:
+            remove_artifact(artifact, run_id=run_id)
 
     def run(
         self,
@@ -227,7 +239,7 @@ class Controller:
         if timestamp is None:
             timestamp = now
         timestamp = to_utc(timestamp)
-        env_handler = self._config.get_submit_env(env)
+        env_handler = self._config.get_run_env(env)
         run_id = env_handler.generate_run_id(now, run_id)
         if steps is None:
             steps = [step.name for step in pipeline.steps]

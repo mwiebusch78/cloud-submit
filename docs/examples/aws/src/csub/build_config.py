@@ -84,7 +84,8 @@ def build_config(project_root, userconfig):
                 aws_region=userconfig['aws_region'],
                 aws_profile=userconfig['aws_profile'],
                 docker_namespace=userconfig['docker_namespace'],
-                s3_prefix='s3://mybucket',
+                s3_bucket=userconfig['s3_bucket'],
+                s3_prefix=userconfig['s3_prefix'],
             ),
         ],
     )

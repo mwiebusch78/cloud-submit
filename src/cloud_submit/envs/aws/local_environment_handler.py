@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import json
 import datetime as dt
+import re
 
 from cloud_submit import (
     LocalEnv,
@@ -28,6 +29,7 @@ class LocalAWSEnv(LocalEnv):
         aws_account_id,
         aws_region,
         aws_profile,
+        s3_bucket,
         s3_prefix,
         docker_command='docker',
         docker_namespace='csub',
@@ -46,6 +48,7 @@ class LocalAWSEnv(LocalEnv):
         self._aws_account_id = str(aws_account_id)
         self._aws_region = str(aws_region)
         self._aws_profile = str(aws_profile)
+        self._s3_bucket = str(s3_bucket)
         self._s3_prefix = str(s3_prefix)
         self._aws_command = str(aws_command)
         self._docker_login_refresh_hours = float(docker_login_refresh_hours)
@@ -159,3 +162,110 @@ class LocalAWSEnv(LocalEnv):
                 '--image-ids',
                 *[f'imageTag={tag}' for tag in tag_list],
             ])
+
+    def get_remote_artifact_path(self, artifact, run_id=None):
+        if artifact.kind != 'file':
+            raise CloudSubmitError(
+                f'Cannot get remote path for artifact {artifact.name}. '
+                "Only artifacts of kind 'file' are supported and this one "
+                f'is of kind {repr(artifact.kind)}.'
+            )
+        if artifact.scope == 'project':
+            return '/'.join([
+                's3:/', self._s3_bucket, self._s3_prefix,
+                'shared', artifact.name
+            ])
+        elif artifact.scope == 'user':
+            return '/'.join([
+                's3:/', self._s3_bucket, self._s3_prefix, 'users', self._user,
+                'shared', artifact.name
+            ])
+        elif artifact.scope == 'run':
+            if run_id is None:
+                raise ValueError(
+                    'You must specify `run_id` to get the path '
+                    "for an artifact with scope 'run'"
+                )
+            return '/'.join([
+                's3:/', self._s3_bucket, self._s3_prefix, 'users', self._user,
+                'runs', run_id, artifact.name
+            ])
+        else:
+            raise CloudSubmitError(
+                f'Unknown scope {artifact.scope} for artifact {artifact.name}.')
+
+    def _get_s3_objects(self, prefix, recursive=False):
+        command = [self._aws_command, 's3', 'ls']
+        if recursive:
+            command.append('--recursive')
+        command.append(prefix)
+        result = run_command(
+            command,
+            check=False,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        lines = result.stdout.strip()
+        if not lines:
+            return []
+        lines = lines.split('\n')
+        return [l.split()[-1] for l in lines]
+
+    def list_remote_artifacts(self, artifacts, run_ids=None):
+        if run_ids is not None:
+            run_ids = set(run_ids)
+
+        project_artifacts = set()
+        user_artifacts = set()
+        run_artifacts = set()
+        for a in artifacts:
+            if a.scope == 'project':
+                project_artifacts.add(a.name)
+            elif a.scope == 'user':
+                user_artifacts.add(a.name)
+            elif a.scope == 'run':
+                run_artifacts.add(a.name)
+
+        results = {a.name: set() for a in artifacts}
+        if project_artifacts:
+            keys = self._get_s3_objects('/'.join([
+                's3:/', self._s3_bucket, self._s3_prefix, 'shared/',
+            ]))
+            for key in keys:
+                if key.endswith('/'):
+                    key = key[:-1]
+                artifact = key
+                if artifact in project_artifacts:
+                    results[artifact].add(None)
+        if user_artifacts:
+            keys = self._get_s3_objects('/'.join([
+                's3:/', self._s3_bucket, self._s3_prefix,
+                'users', self._user, 'shared/',
+            ]))
+            for key in keys:
+                if key.endswith('/'):
+                    key = key[:-1]
+                artifact = key
+                if artifact in user_artifacts:
+                    results[artifact].add(None)
+        if run_artifacts:
+            prefix = '/'.join(
+                [self._s3_prefix, 'users', self._user, 'runs/'])
+            keys = self._get_s3_objects(
+                '/'.join(['s3:/', self._s3_bucket, prefix]),
+                recursive=True,
+            )
+            for key in keys:
+                key = key[len(prefix):].split('/')
+                run_id = key[0]
+                if run_ids is not None and run_id not in run_ids:
+                    continue
+                if len(key) > 1 and key[1] in run_artifacts:
+                    artifact = key[1]
+                    results[artifact].add(run_id)
+    
+        results = [sorted(results[a.name]) for a in artifacts]
+        return results
+
+    def remove_remote_artifact(self, artifact, run_id=None):
+        pass

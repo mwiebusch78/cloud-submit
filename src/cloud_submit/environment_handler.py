@@ -222,13 +222,13 @@ class EnvironmentHandler:
     def list_remote_artifacts(self, artifacts, run_ids=None):
         raise NotImplementedError
 
-    def push_artifact(self, artifact, run_id):
+    def push_artifact(self, artifact, run_id=None):
         raise NotImplementedError
 
-    def pull_artifact(self, artifact, run_id):
+    def pull_artifact(self, artifact, run_id=None):
         raise NotImplementedError
 
-    def remove_local_artifact(self, artifact, run_id):
+    def remove_local_artifact(self, artifact, run_id=None):
         path = self.get_local_artifact_path(artifact, run_id)
         clear_path(path)
 

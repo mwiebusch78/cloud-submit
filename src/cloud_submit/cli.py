@@ -583,7 +583,7 @@ def list_artifacts(ctx, env, artifacts, local, remote, run_ids):
         except CloudSubmitError as e:
             abort(str(e))
         table = tabulate(
-            results,
+            [(a.name, a.kind, a.scope, r, p) for a, r, p in results],
             header=['NAME', 'KIND', 'SCOPE', 'RUN_ID', 'PATH'],
         )
         if table:
@@ -597,3 +597,86 @@ def list_artifacts(ctx, env, artifacts, local, remote, run_ids):
         table = tabulate(data, header=['NAME', 'KIND', 'SCOPE'])
         if table:
             print(table)
+
+
+@artifacts.command(
+    name='remove',
+    help='Remove artifacts.',
+)
+@click.option(
+    '--env', '-e',
+    type=str,
+    default=None,
+    help='The name of the environment to use for removing artifacts.',
+)
+@click.option(
+    '--artifacts', '-a', 'artifact_names',
+    type=str,
+    default=None,
+    help=(
+        'Comma-separated list of names for the artifacts to remove. '
+        'If absent, all declared artifacts will be removed.'
+    ),
+)
+@click.option(
+    '--local',
+    is_flag=True,
+    help='Remove artifacts only locally.',
+)
+@click.option(
+    '--remote',
+    is_flag=True,
+    help='Remove artifacts only from remote storage.',
+)
+@click.option(
+    '--run-ids', '-r',
+    type=str,
+    default=None,
+    help=(
+        'Comma-separated list of run IDs. Only artifacts '
+        'from the given runs are removed.'
+    ),
+)
+@click.pass_context
+def remove_artifacts(ctx, env, artifact_names, local, remote, run_ids):
+    if local and remote:
+        abort('The flags --local and --remote are mutually exclusive.')
+    init(ctx)
+    config = ctx.obj['config']
+    controller = ctx.obj['controller']
+
+    remove_local = True
+    remove_remote = True
+    if local:
+        remove_remote = False
+    if remote:
+        remove_local = False
+
+    if artifact_names is not None:
+        artifact_names = list(set(artifact_names.split(',')))
+    if run_ids is not None:
+        run_ids = list(set(run_ids.split(',')))
+
+    with config.in_project_root():
+        if remove_local:
+            try:
+                artifacts = controller.list_artifacts(
+                    artifact_names=artifact_names,
+                    run_ids=run_ids,
+                    env=env,
+                    remote=False,
+                )
+                controller.remove_artifacts(artifacts, remote=False, env=env)
+            except CloudSubmitError as e:
+                abort(str(e))
+        if remove_remote:
+            try:
+                artifacts = controller.list_artifacts(
+                    artifact_names=artifact_names,
+                    run_ids=run_ids,
+                    env=env,
+                    remote=True,
+                )
+                controller.remove_artifacts(artifacts, remote=True, env=env)
+            except CloudSubmitError as e:
+                abort(str(e))
