@@ -1,3 +1,4 @@
+import os
 import json
 
 import numpy as np
@@ -11,7 +12,7 @@ def fit_step(
 ):
     print(f'Fitting model.')
 
-    train_data = pl.read_parquet(train_data_path)
+    train_data = pl.read_parquet(os.path.join(train_data_path, '*.parquet'))
     x = train_data.get_column('x').to_numpy()
     y = train_data.get_column('y').to_numpy()
 

@@ -204,10 +204,11 @@ class Controller:
         env_handler = self._config.get_run_env(env)
         artifacts = [
             self._config.artifacts[name].copy() for name in artifact_names]
-        if remote:
-            env_handler.remove_remote_artifacts(artifacts, run_ids)
-        else:
-            env_handler.remove_local_artifacts(artifacts, run_ids)
+        with self._config.in_project_root():
+            if remote:
+                env_handler.remove_remote_artifacts(artifacts, run_ids)
+            else:
+                env_handler.remove_local_artifacts(artifacts, run_ids)
 
     def pull_artifacts(
         self,
@@ -219,7 +220,8 @@ class Controller:
         env_handler = self._config.get_run_env(env)
         artifacts = [
             self._config.artifacts[name].copy() for name in artifact_names]
-        env_handler.pull_artifacts(artifacts, run_ids)
+        with self._config.in_project_root():
+            env_handler.pull_artifacts(artifacts, run_ids)
 
     def push_artifacts(
         self,
@@ -231,7 +233,8 @@ class Controller:
         env_handler = self._config.get_run_env(env)
         artifacts = [
             self._config.artifacts[name].copy() for name in artifact_names]
-        env_handler.push_artifacts(artifacts, run_ids)
+        with self._config.in_project_root():
+            env_handler.push_artifacts(artifacts, run_ids)
 
     def run(
         self,
