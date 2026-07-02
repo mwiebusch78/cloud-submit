@@ -654,7 +654,8 @@ def list_artifacts(ctx, env, artifacts, local, remote, run_ids):
     default=None,
     help=(
         'Comma-separated list of run IDs. Only artifacts '
-        'from the given runs are removed.'
+        'from the given runs are removed. If absent, artifacts from '
+        'ALL runs are removed.'
     ),
 )
 @click.pass_context
@@ -702,3 +703,101 @@ def remove_artifacts(ctx, env, artifact_names, local, remote, run_ids):
                     artifact_names, run_id_lists, remote=True, env=env)
             except CloudSubmitError as e:
                 abort(str(e))
+
+
+@artifacts.command(
+    name='pull',
+    help='Download artifacts from remote storage.',
+)
+@click.option(
+    '--env', '-e',
+    type=str,
+    default=None,
+    help='The name of the environment to use for pulling artifacts.',
+)
+@click.option(
+    '--artifacts', '-a', 'artifact_names',
+    type=str,
+    default=None,
+    help=(
+        'Comma-separated list of names for the artifacts to pull. '
+        'If absent, all declared artifacts will be pulled.'
+    ),
+)
+@click.option(
+    '--run-ids', '-r',
+    type=str,
+    default=None,
+    help=(
+        'Comma-separated list of run IDs. Only artifacts '
+        'from the given runs are pulled. If absent, artifacts from '
+        'ALL runs are pulled.'
+    ),
+)
+@click.pass_context
+def pull_artifacts(ctx, env, artifact_names, run_ids):
+    init(ctx)
+    config = ctx.obj['config']
+    controller = ctx.obj['controller']
+
+    if artifact_names is not None:
+        artifact_names = list(set(artifact_names.split(',')))
+    if run_ids is not None:
+        run_ids = list(set(run_ids.split(',')))
+
+    artifact_names, run_id_lists = controller.list_artifacts(
+        artifact_names=artifact_names,
+        run_ids=run_ids,
+        env=env,
+        remote=True,
+    )
+    controller.pull_artifacts(artifact_names, run_id_lists)
+
+
+@artifacts.command(
+    name='push',
+    help='Upload artifacts to remote storage.',
+)
+@click.option(
+    '--env', '-e',
+    type=str,
+    default=None,
+    help='The name of the environment to use for pushing artifacts.',
+)
+@click.option(
+    '--artifacts', '-a', 'artifact_names',
+    type=str,
+    default=None,
+    help=(
+        'Comma-separated list of names for the artifacts to push. '
+        'If absent, all declared artifacts will be pushed.'
+    ),
+)
+@click.option(
+    '--run-ids', '-r',
+    type=str,
+    default=None,
+    help=(
+        'Comma-separated list of run IDs. Only artifacts '
+        'from the given runs are pushed. If absent, artifacts from '
+        'ALL runs are pushed.'
+    ),
+)
+@click.pass_context
+def push_artifacts(ctx, env, artifact_names, run_ids):
+    init(ctx)
+    config = ctx.obj['config']
+    controller = ctx.obj['controller']
+
+    if artifact_names is not None:
+        artifact_names = list(set(artifact_names.split(',')))
+    if run_ids is not None:
+        run_ids = list(set(run_ids.split(',')))
+
+    artifact_names, run_id_lists = controller.list_artifacts(
+        artifact_names=artifact_names,
+        run_ids=run_ids,
+        env=env,
+        remote=False,
+    )
+    controller.push_artifacts(artifact_names, run_id_lists)

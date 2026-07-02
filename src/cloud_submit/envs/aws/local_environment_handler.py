@@ -326,3 +326,113 @@ class LocalAWSEnv(LocalEnv):
                     ])
 
         run_command(command)
+
+    def push_artifacts(self, artifacts, run_ids):
+        self.remove_remote_artifacts(artifacts, run_ids)
+
+        remote_path = '/'.join(
+            ['s3:/', self._s3_bucket, self._s3_prefix, self._project])
+        local_path = 'artifacts'
+        command = [
+            self._aws_command,
+            's3',
+            'cp',
+            '--profile', self._aws_profile,
+            '--region', self._aws_region,
+            '--recursive',
+            local_path,
+            remote_path,
+            '--exclude', '*',
+        ]
+        for artifact, runs in zip(artifacts, run_ids):
+            if artifact.kind != 'file':
+                continue
+            if artifact.scope == 'project':
+                for run_id in runs:
+                    command.extend([
+                        '--include',
+                        os.path.join('shared', artifact.name),
+                        '--include',
+                        os.path.join('shared', artifact.name, '*'),
+                    ])
+            elif artifact.scope == 'user':
+                for run_id in runs:
+                    command.extend([
+                        '--include',
+                        os.path.join(
+                            'users', self._user, 'shared', artifact.name),
+                        '--include',
+                        os.path.join(
+                            'users', self._user, 'shared', artifact.name, '*'),
+                    ])
+            elif artifact.scope == 'run':
+                for run_id in runs:
+                    command.extend([
+                        '--include',
+                        os.path.join(
+                            'users', self._user, 'runs', run_id,
+                            artifact.name,
+                        ),
+                        '--include',
+                        os.path.join(
+                            'users', self._user, 'runs', run_id,
+                            artifact.name, '*',
+                        ),
+                    ])
+
+        run_command(command)
+
+    def pull_artifacts(self, artifacts, run_ids):
+        self.remove_local_artifacts(artifacts, run_ids)
+
+        remote_path = '/'.join(
+            ['s3:/', self._s3_bucket, self._s3_prefix, self._project])
+        local_path = 'artifacts'
+        command = [
+            self._aws_command,
+            's3',
+            'cp',
+            '--profile', self._aws_profile,
+            '--region', self._aws_region,
+            '--recursive',
+            remote_path,
+            local_path,
+            '--exclude', '*',
+        ]
+        for artifact, runs in zip(artifacts, run_ids):
+            if artifact.kind != 'file':
+                continue
+            if artifact.scope == 'project':
+                for run_id in runs:
+                    command.extend([
+                        '--include',
+                        '/'.join(['shared', artifact.name]),
+                        '--include',
+                        '/'.join(['shared', artifact.name, '*']),
+                    ])
+            elif artifact.scope == 'user':
+                for run_id in runs:
+                    command.extend([
+                        '--include',
+                        '/'.join([
+                            'users', self._user, 'shared', artifact.name]),
+                        '--include',
+                        '/'.join([
+                            'users', self._user, 'shared', artifact.name, '*']),
+                    ])
+            elif artifact.scope == 'run':
+                for run_id in runs:
+                    command.extend([
+                        '--include',
+                        '/'.join([
+                            'users', self._user, 'runs', run_id,
+                            artifact.name,
+                        ]),
+                        '--include',
+                        '/'.join([
+                            'users', self._user, 'runs', run_id,
+                            artifact.name, '*',
+                        ]),
+                    ])
+
+        run_command(command)
