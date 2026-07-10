@@ -47,6 +47,11 @@ def build_config(project_root, userconfig):
         steps=[
             cs.Step(
                 name='generate',
+                spec=cs.Spec(
+                    cpu=1,
+                    memory=6.5,
+                    disk=20,
+                ),
                 function='generate:generate_step',
                 image='exec',
                 params={
@@ -62,6 +67,11 @@ def build_config(project_root, userconfig):
             ),
             cs.Step(
                 name='fit',
+                spec=cs.Spec(
+                    cpu=2,
+                    memory=6.5,
+                    disk=20,
+                ),
                 function='fit:fit_step',
                 image='exec',
                 inputs={

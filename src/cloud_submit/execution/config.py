@@ -98,11 +98,13 @@ class Spec:
     def __init__(self, **kwargs):
         self._spec = kwargs
 
-    def __getattr__(self, attr):
-        try:
-            return self._spec[attr]
-        except KeyError:
-            raise AttributeError(f'Attribute {attr} not found.')
+    def get(self, attr, default=None):
+        return self._spec.get(attr, default)
+
+    def __eq__(self, other):
+        if other is None:
+            return False
+        return self._spec == other._spec
 
 
 class Step:
@@ -138,6 +140,8 @@ class Step:
             self.temporaries = {}
         self.image = image
         self.spec = spec
+        if self.spec is None:
+            self.spec = Spec()
         self.num_workers = None
         if num_workers is not None:
             self.num_workers = int(num_workers)

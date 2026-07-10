@@ -47,7 +47,7 @@ class ExecutionHandler(BaseExecutionHandler):
         local_path = self.get_local_artifact_path(artifact)
         local_path = os.path.dirname(local_path)
 
-        run_command([
+        command = [
             self._container_aws_command,
             's3',
             'cp',
@@ -55,9 +55,10 @@ class ExecutionHandler(BaseExecutionHandler):
             remote_path,
             local_path,
             '--exclude', '*',
-            '--include', '/'.join([remote_path, artifact.name]),
-            '--include', '/'.join([remote_path, artifact.name, '*'])
-        ])
+            '--include', artifact.name,
+            '--include', '/'.join([artifact.name, '*'])
+        ]
+        run_command(command)
 
     def upload_artifact(self, artifact):
         remote_path = self.get_remote_artifact_path(artifact)
@@ -65,7 +66,7 @@ class ExecutionHandler(BaseExecutionHandler):
         local_path = self.get_local_artifact_path(artifact)
         local_path = os.path.dirname(local_path)
 
-        run_command([
+        command = [
             self._container_aws_command,
             's3',
             'cp',
@@ -73,9 +74,10 @@ class ExecutionHandler(BaseExecutionHandler):
             local_path,
             remote_path,
             '--exclude', '*',
-            '--include', '/'.join([local_path, artifact.name]),
-            '--include', '/'.join([local_path, artifact.name, '*'])
-        ])
+            '--include', artifact.name,
+            '--include', '/'.join([artifact.name, '*'])
+        ]
+        run_command(command)
 
 
 def create_execution_handler():

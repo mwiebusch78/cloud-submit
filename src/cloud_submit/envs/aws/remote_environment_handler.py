@@ -4,7 +4,7 @@ import shutil
 import json
 import subprocess
 
-from cloud_submit import run_command, write_json
+from cloud_submit import run_command, write_json, CloudSubmitError
 
 from .local_environment_handler import LocalAWSEnv
 
@@ -106,14 +106,14 @@ class RemoteAWSEnv(LocalAWSEnv):
 
     def _group_steps(self, pipeline, image_refs):
         groups = []
-        last_ref = None
+        last_spec = None
         for i, step in enumerate(pipeline.steps):
             if step.name in image_refs:
-                ref = image_refs[step.name]
-                if last_ref is None or ref != last_ref:
+                spec = (image_refs[step.name], step.spec)
+                if spec is None or spec != last_spec:
                     groups.append([])
                 groups[-1].append(i)
-                last_ref = ref
+                last_spec = spec
         return groups
 
     def _build_task(
@@ -121,12 +121,16 @@ class RemoteAWSEnv(LocalAWSEnv):
         workflow_name,
         task_index,
         image_ref,
+        spec,
         pipeline_name,
         step_names,
         timestamp,
         run_id,
         is_last,
     ):
+        cpu = spec.get('cpu', 1)
+        memory = spec.get('memory', 2)
+        disk = spec.get('disk', 10)
         return {
             f"RegisterTask{task_index}": {
                 "Type": "Task",
@@ -135,8 +139,8 @@ class RemoteAWSEnv(LocalAWSEnv):
                     "Family": f"{workflow_name}--{task_index}",
                     "RequiresCompatibilities": ["EC2"],
                     "NetworkMode": "host",
-                    "Cpu": "1 vCPU",
-                    "Memory": "6.5 GB",
+                    "Cpu": f'{cpu} vCPU',
+                    "Memory": f'{memory} GB',
                     "ExecutionRoleArn": self._ecs_execution_role_arn,
                     "TaskRoleArn": self._ecs_task_role_arn,
                     "ContainerDefinitions": [
@@ -204,7 +208,7 @@ class RemoteAWSEnv(LocalAWSEnv):
                         {
                             "Name": "artifacts",
                             "ManagedEBSVolume": {
-                                "SizeInGiB": 20,
+                                "SizeInGiB": disk,
                                 "VolumeType": "gp3",
                                 "Encrypted": False,
                                 "FilesystemType": "ext4",
@@ -266,15 +270,17 @@ class RemoteAWSEnv(LocalAWSEnv):
                     )
             step_names = [step.name for step in steps]
             image_ref = image_refs[step_names[0]]
+            spec = pipeline.steps[group[0]].spec
             states.update(
                 self._build_task(
-                    workflow_name,
-                    task_index,
-                    image_ref,
-                    pipeline.name,
-                    step_names,
-                    timestamp,
-                    run_id,
+                    workflow_name=workflow_name,
+                    task_index=task_index,
+                    image_ref=image_ref,
+                    spec=spec,
+                    pipeline_name=pipeline.name,
+                    step_names=step_names,
+                    timestamp=timestamp,
+                    run_id=run_id,
                     is_last=(task_index == len(groups) - 1),
                 )
             )
