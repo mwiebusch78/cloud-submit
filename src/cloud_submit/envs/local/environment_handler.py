@@ -8,16 +8,16 @@ import subprocess
 #
 # from cloud_submit import ...
 from ...environment_handler import EnvironmentHandler
-from ...utils import (
+from ...utils import build_docker_mount_option
+from ...execution.utils import (
     ensure_path,
     CloudSubmitError,
-    build_docker_mount_option,
     run_command,
 )
 
 
 def build_artifacts_mount_option(path, scope):
-    return build_docker_mount_option(path, f'/root/artifacts/{scope}')
+    return build_docker_mount_option(path, f'/mnt/artifacts/{scope}')
 
 
 class LocalEnv(EnvironmentHandler):
@@ -59,7 +59,7 @@ class LocalEnv(EnvironmentHandler):
     def remove_remote_artifacts(self, artifacts, run_ids):
         pass
 
-    def run_pipeline(self, pipeline, image_refs, timestamp, run_id):
+    def run_pipeline(self, pipeline, image_refs, timestamp, run_id, temp_path):
         artifacts_project_path = os.path.join('artifacts', 'shared')
         artifacts_user_path = os.path.join(
             'artifacts', 'users', self._user, 'shared')
@@ -96,3 +96,7 @@ class LocalEnv(EnvironmentHandler):
                     pipeline.name,
                     step.name,
                 ])
+
+    def print_logs(self, run_id, start_timestamp, stream=False):
+        raise CloudSubmitError(
+            'Log retrieval is not supported by this environment.')

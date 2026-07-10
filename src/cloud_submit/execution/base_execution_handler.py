@@ -19,7 +19,7 @@ class BaseExecutionHandler:
                 f'for artifact {artifact.name} '
             )
         return os.path.join(
-            '/root/artifacts',
+            '/mnt/artifacts',
             artifact.scope,
             artifact.name,
         )

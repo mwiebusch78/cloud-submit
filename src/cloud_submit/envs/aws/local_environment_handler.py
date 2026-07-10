@@ -15,6 +15,9 @@ from cloud_submit import (
     parse_image_ref,
 )
 
+from .s3_tools import  get_remote_artifact_path, remove_remote_artifacts
+
+
 
 def build_artifacts_mount_option(path, scope):
     return build_docker_mount_option(path, f'/root/artifacts/{scope}')
@@ -164,35 +167,14 @@ class LocalAWSEnv(LocalEnv):
             ])
 
     def get_remote_artifact_path(self, artifact, run_id=None):
-        if artifact.kind != 'file':
-            raise CloudSubmitError(
-                f'Cannot get remote path for artifact {artifact.name}. '
-                "Only artifacts of kind 'file' are supported and this one "
-                f'is of kind {repr(artifact.kind)}.'
-            )
-        if artifact.scope == 'project':
-            return '/'.join([
-                's3:/', self._s3_bucket, self._s3_prefix, self._project,
-                'shared', artifact.name
-            ])
-        elif artifact.scope == 'user':
-            return '/'.join([
-                's3:/', self._s3_bucket, self._s3_prefix, self._project,
-                'users', self._user, 'shared', artifact.name
-            ])
-        elif artifact.scope == 'run':
-            if run_id is None:
-                raise ValueError(
-                    'You must specify `run_id` to get the path '
-                    "for an artifact with scope 'run'"
-                )
-            return '/'.join([
-                's3:/', self._s3_bucket, self._s3_prefix, self._project,
-                'users', self._user, 'runs', run_id, artifact.name
-            ])
-        else:
-            raise CloudSubmitError(
-                f'Unknown scope {artifact.scope} for artifact {artifact.name}.')
+        return get_remote_artifact_path(
+            artifact,
+            self._project,
+            self._user,
+            run_id,
+            self._s3_bucket,
+            self._s3_prefix,
+        )
 
     def _get_s3_objects(self, prefix, recursive=False):
         command = [
@@ -277,55 +259,17 @@ class LocalAWSEnv(LocalEnv):
         return results
 
     def remove_remote_artifacts(self, artifacts, run_ids):
-        path = '/'.join(
-            ['s3:/', self._s3_bucket, self._s3_prefix, self._project])
-        command = [
-            self._aws_command,
-            's3',
-            'rm',
-            '--profile', self._aws_profile,
-            '--region', self._aws_region,
-            '--recursive',
-            path,
-            '--exclude', '*',
-        ]
-        for artifact, runs in zip(artifacts, run_ids):
-            if artifact.kind != 'file':
-                continue
-            if artifact.scope == 'project':
-                for run_id in runs:
-                    command.extend([
-                        '--include',
-                        '/'.join(['shared', artifact.name]),
-                        '--include',
-                        '/'.join(['shared', artifact.name, '*']),
-                    ])
-            elif artifact.scope == 'user':
-                for run_id in runs:
-                    command.extend([
-                        '--include',
-                        '/'.join([
-                            'users', self._user, 'shared', artifact.name]),
-                        '--include',
-                        '/'.join([
-                            'users', self._user, 'shared', artifact.name, '*']),
-                    ])
-            elif artifact.scope == 'run':
-                for run_id in runs:
-                    command.extend([
-                        '--include',
-                        '/'.join([
-                            'users', self._user, 'runs', run_id,
-                            artifact.name,
-                        ]),
-                        '--include',
-                        '/'.join([
-                            'users', self._user, 'runs', run_id,
-                            artifact.name, '*',
-                        ]),
-                    ])
-
-        run_command(command)
+        remove_remote_artifacts(
+            artifacts=artifacts,
+            run_ids=run_ids,
+            project=self._project,
+            user=self._user,
+            s3_bucket=self._s3_bucket,
+            s3_prefix=self._s3_prefix,
+            aws_profile=self._aws_profile,
+            aws_region=self._aws_region,
+            aws_command=self._aws_command,
+        )
 
     def push_artifacts(self, artifacts, run_ids):
         self.remove_remote_artifacts(artifacts, run_ids)
@@ -333,6 +277,11 @@ class LocalAWSEnv(LocalEnv):
         remote_path = '/'.join(
             ['s3:/', self._s3_bucket, self._s3_prefix, self._project])
         local_path = 'artifacts'
+        project_dir = 'shared'
+        user_dir = os.path.join('users', self._user, 'shared')
+        run_dir = lambda run_id: os.path.join(
+            'users', self._user, 'runs', run_id)
+
         command = [
             self._aws_command,
             's3',
@@ -351,33 +300,25 @@ class LocalAWSEnv(LocalEnv):
                 for run_id in runs:
                     command.extend([
                         '--include',
-                        os.path.join('shared', artifact.name),
+                        os.path.join(project_dir, artifact.name),
                         '--include',
-                        os.path.join('shared', artifact.name, '*'),
+                        os.path.join(project_dir, artifact.name, '*'),
                     ])
             elif artifact.scope == 'user':
                 for run_id in runs:
                     command.extend([
                         '--include',
-                        os.path.join(
-                            'users', self._user, 'shared', artifact.name),
+                        os.path.join(user_dir, artifact.name),
                         '--include',
-                        os.path.join(
-                            'users', self._user, 'shared', artifact.name, '*'),
+                        os.path.join(user_dir, artifact.name, '*'),
                     ])
             elif artifact.scope == 'run':
                 for run_id in runs:
                     command.extend([
                         '--include',
-                        os.path.join(
-                            'users', self._user, 'runs', run_id,
-                            artifact.name,
-                        ),
+                        os.path.join(run_dir(run_id), artifact.name),
                         '--include',
-                        os.path.join(
-                            'users', self._user, 'runs', run_id,
-                            artifact.name, '*',
-                        ),
+                        os.path.join(run_dir(run_id), artifact.name, '*'),
                     ])
 
         run_command(command)
@@ -388,6 +329,11 @@ class LocalAWSEnv(LocalEnv):
         remote_path = '/'.join(
             ['s3:/', self._s3_bucket, self._s3_prefix, self._project])
         local_path = 'artifacts'
+        project_dir = 'shared'
+        user_dir = os.path.join('users', self._user, 'shared')
+        run_dir = lambda run_id: os.path.join(
+            'users', self._user, 'runs', run_id)
+
         command = [
             self._aws_command,
             's3',
@@ -406,33 +352,25 @@ class LocalAWSEnv(LocalEnv):
                 for run_id in runs:
                     command.extend([
                         '--include',
-                        '/'.join(['shared', artifact.name]),
+                        '/'.join([project_dir, artifact.name]),
                         '--include',
-                        '/'.join(['shared', artifact.name, '*']),
+                        '/'.join([project_dir, artifact.name, '*']),
                     ])
             elif artifact.scope == 'user':
                 for run_id in runs:
                     command.extend([
                         '--include',
-                        '/'.join([
-                            'users', self._user, 'shared', artifact.name]),
+                        '/'.join([user_dir, artifact.name]),
                         '--include',
-                        '/'.join([
-                            'users', self._user, 'shared', artifact.name, '*']),
+                        '/'.join([user_dir, artifact.name, '*']),
                     ])
             elif artifact.scope == 'run':
                 for run_id in runs:
                     command.extend([
                         '--include',
-                        '/'.join([
-                            'users', self._user, 'runs', run_id,
-                            artifact.name,
-                        ]),
+                        '/'.join([run_dir(run_id), artifact.name]),
                         '--include',
-                        '/'.join([
-                            'users', self._user, 'runs', run_id,
-                            artifact.name, '*',
-                        ]),
+                        '/'.join([run_dir(run_id), artifact.name, '*']),
                     ])
 
         run_command(command)

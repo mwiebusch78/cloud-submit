@@ -5,7 +5,12 @@ import uuid
 import subprocess
 import glob
 
-from .utils import CloudSubmitError, run_command, ensure_path, clear_path
+from .execution.utils import (
+    CloudSubmitError,
+    run_command,
+    ensure_path,
+    clear_path,
+)
 from .images import BaseImage, ExecutionImage
 from .execution.config import to_utc
 
@@ -237,5 +242,8 @@ class EnvironmentHandler:
     def remove_remote_artifacts(self, artifacts, run_ids):
         raise NotImplementedError
 
-    def run_pipeline(self, pipeline, image_refs, timestamp, run_id):
+    def run_pipeline(self, pipeline, image_refs, timestamp, run_id, temp_path):
+        raise NotImplementedError
+
+    def print_logs(self, run_id, start_timestamp, stream=False):
         raise NotImplementedError

@@ -2,7 +2,8 @@ import os
 import shutil
 import datetime as dt
 
-from .utils import ensure_path, CloudSubmitError, parse_image_ref
+from .utils import parse_image_ref
+from .execution.utils import ensure_path, CloudSubmitError
 from .images import ExecutionImage, BaseImage
 from .execution.config import to_utc
 
@@ -21,8 +22,8 @@ class Controller:
             os.path.join(path, 'base_execution_handler.py'),
         )
         shutil.copyfile(
-            os.path.join(sourcedir, 'execution', 'json_io.py'),
-            os.path.join(path, 'json_io.py'),
+            os.path.join(sourcedir, 'execution', 'utils.py'),
+            os.path.join(path, 'utils.py'),
         )
         shutil.copyfile(
             os.path.join(sourcedir, 'execution', 'execute.py'),
@@ -39,7 +40,7 @@ class Controller:
                 return ref
 
         is_execution_image = isinstance(image, ExecutionImage)
-        path = os.path.join('build', image.name)
+        path = os.path.join('temp', 'build', image.name)
         if is_execution_image:
             path = os.path.join(path, env.name)
             ensure_path(path, clear=True)
@@ -250,6 +251,9 @@ class Controller:
         except KeyError:
             raise CloudSubmitError(f'Pipeline not found: {pipeline}')
 
+        if build_env is None:
+            build_env = env
+
         now = dt.datetime.now(tz=dt.UTC)
         if isinstance(timestamp, str) and timestamp == 'now':
             timestamp = now
@@ -280,4 +284,26 @@ class Controller:
                         f'Could not find image ref for image {step.image}')
                 refs[step.name] = ref
 
-            env_handler.run_pipeline(pipeline, refs, timestamp, run_id)
+            temp_path = 'temp/run'
+            ensure_path(temp_path, clear=True)
+            env_handler.run_pipeline(
+                pipeline, refs, timestamp, run_id, temp_path)
+        
+        return {
+            'run_id': run_id,
+            'start_timestamp': now,
+        }
+
+    def print_logs(
+        self,
+        run_id,
+        since=dt.timedelta(minutes=1),
+        env=None,
+        stream=False
+    ):
+        if isinstance(since, dt.timedelta):
+            since = dt.datetime.now(tz=dt.UTC) - since
+        env_handler = self._config.get_run_env(env)
+        env_handler.print_logs(run_id, since, stream=stream)
+        
+

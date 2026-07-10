@@ -1,7 +1,7 @@
 import os
 import datetime as dt
 
-from .json_io import read_json
+from .utils import read_json
 
 
 class ConfigError(Exception):

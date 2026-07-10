@@ -2,7 +2,7 @@ import datetime as dt
 import cloud_submit as cs
 
 import cloud_submit.envs.aws
-from cloud_submit.envs.aws import LocalAWSEnv
+from cloud_submit.envs.aws import LocalAWSEnv, RemoteAWSEnv
 
 
 PROJECT_NAME = 'basic-aws'
@@ -16,6 +16,13 @@ def build_config(project_root, userconfig):
             name='base',
             instructions="""
             FROM python
+            RUN \\
+              cd /opt && \\
+              curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" \\
+                -o "awscliv2.zip" && \\
+              unzip awscliv2.zip && \\
+              ./aws/install && \\
+              rm -rf awscliv2.zip aws
             RUN pip install --root-user-action=ignore polars numpy
             """,
         ),
@@ -86,6 +93,24 @@ def build_config(project_root, userconfig):
                 docker_namespace=userconfig['docker_namespace'],
                 s3_bucket=userconfig['s3_bucket'],
                 s3_prefix=userconfig['s3_prefix'],
+            ),
+            RemoteAWSEnv(
+                name='remote',
+                project=PROJECT_NAME,
+                user=userconfig['username'],
+                aws_account_id=userconfig['aws_account_id'],
+                aws_region=userconfig['aws_region'],
+                aws_profile=userconfig['aws_profile'],
+                docker_namespace=userconfig['docker_namespace'],
+                s3_bucket=userconfig['s3_bucket'],
+                s3_prefix=userconfig['s3_prefix'],
+                ecs_cluster_arn=userconfig['ecs_cluster_arn'],
+                ecs_capacity_provider=userconfig['ecs_capacity_provider'],
+                ecs_infrastructure_role_arn=
+                    userconfig['ecs_infrastructure_role_arn'],
+                ecs_execution_role_arn=userconfig['ecs_execution_role_arn'],
+                ecs_task_role_arn=userconfig['ecs_task_role_arn'],
+                stepfunctions_role_arn=userconfig['stepfunctions_role_arn'],
             ),
         ],
     )

@@ -1,7 +1,7 @@
 import os
 import contextlib
 
-from .execution.json_io import write_json
+from .execution.utils import write_json
 from .execution.config import ConfigError
 from .envs.local.environment_handler import LocalEnv
 from .images import BaseImage, ExecutionImage

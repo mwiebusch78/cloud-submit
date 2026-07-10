@@ -5,7 +5,7 @@ import datetime as dt
 import click
 import yaml
 
-from .utils import CloudSubmitError
+from .execution.utils import CloudSubmitError
 from .controller import Controller
 
 
@@ -217,6 +217,7 @@ re-built (but you can use --no-rebuild to prevent that).
         'the pipeline default.'
     ),
 )
+@click.option('--stream-logs', is_flag=True)
 @click.argument(
     'pipeline',
     type=str,
@@ -228,7 +229,7 @@ re-built (but you can use --no-rebuild to prevent that).
     default=None,
 )
 @click.pass_context
-def run(ctx, env, build_env, run_id, timestamp, pipeline, steps):
+def run(ctx, env, build_env, run_id, timestamp, stream_logs, pipeline, steps):
     init(ctx)
     config = ctx.obj['config']
     controller = ctx.obj['controller']
@@ -243,7 +244,7 @@ def run(ctx, env, build_env, run_id, timestamp, pipeline, steps):
 
     try:
         steps = get_steps(pipeline, steps)
-        controller.run(
+        execution_data = controller.run(
             pipeline.name,
             steps=steps,
             run_id=run_id,
@@ -251,6 +252,13 @@ def run(ctx, env, build_env, run_id, timestamp, pipeline, steps):
             env=env,
             build_env=build_env,
         )
+        if stream_logs:
+            controller.print_logs(
+                run_id=execution_data['run_id'],
+                since=execution_data['start_timestamp'],
+                env=env,
+                stream=True,
+            )
     except CloudSubmitError as e:
         abort(str(e))
 
@@ -801,3 +809,51 @@ def push_artifacts(ctx, env, artifact_names, run_ids):
         remote=False,
     )
     controller.push_artifacts(artifact_names, run_id_lists)
+
+
+# logs command
+
+
+@main.command(
+    name='logs',
+    help='Show logs from run RUN_ID.',
+)
+@click.option(
+    '--env', '-e',
+    type=str,
+    default=None,
+    help='The name of the build environment to use.',
+)
+@click.option(
+    '--since',
+    type=str,
+    default='1m',
+    help=(
+        'The time from which to retrieve the logs. This should be a timestamp '
+        'in ISO format, e.g. 2025-01-01T00:00:00. You can also pass a number '
+        'N suffixed h, m, or s to retrieve logs from the last N hours, minutes '
+        'or seconds.'
+    ),
+)
+@click.option('--stream', '-s', is_flag=True)
+@click.argument('run_id', type=str)
+@click.pass_context
+def print_logs(ctx, env, since, stream, run_id):
+    init(ctx)
+    controller = ctx.obj['controller']
+
+    try:
+        if since.endswith('h'):
+            since = dt.timedelta(seconds=float(since[:-1])*3600)
+        elif since.endswith('m'):
+            since = dt.timedelta(seconds=float(since[:-1])*60)
+        elif since.endswith('s'):
+            since = dt.timedelta(seconds=float(since[:-1]))
+        else:
+            since = dt.datetime.fromisoformat(since)
+    except ValueError:
+        abort(f'Invalid --since argument: {since}')
+    try:
+        controller.print_logs(run_id, since=since, env=env, stream=stream)
+    except CloudSubmitError as e:
+        abort(str(e))

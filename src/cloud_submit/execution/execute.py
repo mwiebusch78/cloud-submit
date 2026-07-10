@@ -1,3 +1,4 @@
+import os
 import sys
 import importlib
 import copy
@@ -15,6 +16,10 @@ if __name__ == '__main__':
         )
     pipeline_name = sys.argv[1]
     steps = set(sys.argv[2].split(','))
+
+    os.makedirs('/mnt/artifacts/project', exist_ok=True)
+    os.makedirs('/mnt/artifacts/user', exist_ok=True)
+    os.makedirs('/mnt/artifacts/run', exist_ok=True)
 
     pipelines = read_pipelines()
     artifacts = read_artifacts()
