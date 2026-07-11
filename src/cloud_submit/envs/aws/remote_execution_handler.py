@@ -4,7 +4,7 @@ import subprocess
 
 from .base_execution_handler import BaseExecutionHandler
 from .utils import CloudSubmitError, read_json, run_command
-from .s3_tools import get_remote_artifact_path, remove_remote_artifacts
+from .s3_tools import get_remote_artifact_path
 
 
 class ExecutionHandler(BaseExecutionHandler):
@@ -28,20 +28,13 @@ class ExecutionHandler(BaseExecutionHandler):
             self._s3_prefix,
         )
 
-    def clear_artifact(self, artifact):
-        remove_remote_artifacts(
-            artifacts=[artifact],
-            run_ids=[[self._run_id]],
-            project=self._project,
-            user=self._user,
-            s3_bucket=self._s3_bucket,
-            s3_prefix=self._s3_prefix,
-            aws_profile=None,
-            aws_region=None,
-            aws_command=self._container_aws_command,
-        )
-
     def download_artifact(self, artifact):
+        if artifact.kind != 'file':
+            raise CloudSubmitError(
+                f'Artifact {artifact.name} is of kind {repr(artifact.kind)} '
+                "but only artifacts of kind 'file' are supported by this "
+                'environment.'
+            )
         remote_path = self.get_remote_artifact_path(artifact)
         remote_path = '/'.join(remote_path.split('/')[:-1])
         local_path = self.get_local_artifact_path(artifact)
@@ -61,6 +54,12 @@ class ExecutionHandler(BaseExecutionHandler):
         run_command(command)
 
     def upload_artifact(self, artifact):
+        if artifact.kind != 'file':
+            raise CloudSubmitError(
+                f'Artifact {artifact.name} is of kind {repr(artifact.kind)} '
+                "but only artifacts of kind 'file' are supported by this "
+                'environment.'
+            )
         remote_path = self.get_remote_artifact_path(artifact)
         remote_path = '/'.join(remote_path.split('/')[:-1])
         local_path = self.get_local_artifact_path(artifact)

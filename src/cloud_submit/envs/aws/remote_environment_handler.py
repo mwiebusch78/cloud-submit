@@ -56,6 +56,14 @@ class RemoteAWSEnv(LocalAWSEnv):
         self._log_group_prefix = str(log_group_prefix)
         self._container_aws_command = str(container_aws_command)
 
+    def build_image(self, path, image, build_id):
+        return self._build_image(
+            path=path,
+            image=image,
+            build_id=build_id, 
+            push=True,
+        )
+
     def install_execution_handler(self, path):
         sourcedir = os.path.dirname(__file__)
         shutil.copyfile(
@@ -295,7 +303,15 @@ class RemoteAWSEnv(LocalAWSEnv):
             "States": states,
         }
 
-    def run_pipeline(self, pipeline, image_refs, timestamp, run_id, temp_path):
+    def run_pipeline(
+        self,
+        pipeline,
+        image_refs,
+        overwrite_artifacts,
+        timestamp,
+        run_id,
+        temp_path
+    ):
         workflow_name = self._make_workflow_name(run_id)
         workflow = self._build_workflow(
             pipeline,
@@ -332,6 +348,9 @@ class RemoteAWSEnv(LocalAWSEnv):
                 '--role-arn', self._stepfunctions_role_arn,
                 '--definition', f'file://{workflow_path}',
             ])
+
+        self.remove_remote_artifacts(
+            overwrite_artifacts, [[run_id]]*len(overwrite_artifacts))
 
         result = run_command(
             [

@@ -1,9 +1,9 @@
 import os
 
 try:
-    from .utils import CloudSubmitError, clear_path, run_command
+    from .utils import CloudSubmitError
 except ImportError:
-    from cloud_submit import CloudSubmitError, clear_path, run_command
+    from cloud_submit import CloudSubmitError
 
 
 def get_remote_artifact_path(
@@ -44,68 +44,3 @@ def get_remote_artifact_path(
         raise CloudSubmitError(
             f'Unknown scope {artifact.scope} for artifact {artifact.name}.')
 
-
-def remove_remote_artifacts(
-    artifacts,
-    run_ids,
-    project,
-    user,
-    s3_bucket,
-    s3_prefix,
-    aws_profile,
-    aws_region,
-    aws_command,
-):
-    path = '/'.join(
-        ['s3:/', s3_bucket, s3_prefix, project])
-    command = [
-        aws_command,
-        's3',
-        'rm',
-    ]
-    if aws_profile is not None:
-        command.extend(['--profile', aws_profile])
-    if aws_region is not None:
-        command.extend(['--region', aws_region])
-    command.extend([
-        '--recursive',
-        path,
-        '--exclude', '*',
-    ])
-    for artifact, runs in zip(artifacts, run_ids):
-        if artifact.kind != 'file':
-            continue
-        if artifact.scope == 'project':
-            for run_id in runs:
-                command.extend([
-                    '--include',
-                    '/'.join(['shared', artifact.name]),
-                    '--include',
-                    '/'.join(['shared', artifact.name, '*']),
-                ])
-        elif artifact.scope == 'user':
-            for run_id in runs:
-                command.extend([
-                    '--include',
-                    '/'.join([
-                        'users', user, 'shared', artifact.name]),
-                    '--include',
-                    '/'.join([
-                        'users', user, 'shared', artifact.name, '*']),
-                ])
-        elif artifact.scope == 'run':
-            for run_id in runs:
-                command.extend([
-                    '--include',
-                    '/'.join([
-                        'users', user, 'runs', run_id,
-                        artifact.name,
-                    ]),
-                    '--include',
-                    '/'.join([
-                        'users', user, 'runs', run_id,
-                        artifact.name, '*',
-                    ]),
-                ])
-
-    run_command(command)

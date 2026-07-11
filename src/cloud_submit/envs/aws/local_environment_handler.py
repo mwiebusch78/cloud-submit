@@ -13,9 +13,10 @@ from cloud_submit import (
     build_docker_mount_option,
     run_command,
     parse_image_ref,
+    BaseImage,
 )
 
-from .s3_tools import  get_remote_artifact_path, remove_remote_artifacts
+from .s3_tools import  get_remote_artifact_path
 
 
 
@@ -95,28 +96,38 @@ class LocalAWSEnv(LocalEnv):
             os.path.join(path, 'execution_handler.py'),
         )
 
-    def build_image(self, path, image, build_id):
+    def _build_image(self, path, image, build_id, push):
         ref = super().build_image(path, image, build_id)
         self._docker_login()
 
-        # push image
-        run_command([self._docker_command, 'push', ref])
+        if push:
+            # push image
+            run_command([self._docker_command, 'push', ref])
 
-        # get image digest
-        result = run_command(
-            [
-                self._docker_command,
-                'buildx', 'imagetools', 'inspect',
-                '--format', '{{json .Manifest.Digest}}',
-                ref,
-            ],
-            stdout=subprocess.PIPE,
-            text=True,
+            # get image digest
+            result = run_command(
+                [
+                    self._docker_command,
+                    'buildx', 'imagetools', 'inspect',
+                    '--format', '{{json .Manifest.Digest}}',
+                    ref,
+                ],
+                stdout=subprocess.PIPE,
+                text=True,
+            )
+            digest = result.stdout.strip('"')
+            return ref + '@' + digest
+        return ref
+
+    def build_image(self, path, image, build_id):
+        return self._build_image(
+            path=path,
+            image=image,
+            build_id=build_id, 
+            push=isinstance(image, BaseImage),
         )
-        digest = result.stdout.strip('"')
-        return ref + '@' + digest
 
-    def pull_image(self, ref):
+    def pull_base_image(self, ref):
         self._docker_login()
         run_command([
             self._docker_command,
@@ -259,17 +270,55 @@ class LocalAWSEnv(LocalEnv):
         return results
 
     def remove_remote_artifacts(self, artifacts, run_ids):
-        remove_remote_artifacts(
-            artifacts=artifacts,
-            run_ids=run_ids,
-            project=self._project,
-            user=self._user,
-            s3_bucket=self._s3_bucket,
-            s3_prefix=self._s3_prefix,
-            aws_profile=self._aws_profile,
-            aws_region=self._aws_region,
-            aws_command=self._aws_command,
-        )
+        path = '/'.join(
+            ['s3:/', self._s3_bucket, self._s3_prefix, self._project])
+        command = [
+            self._aws_command,
+            's3',
+            'rm',
+            '--profile', self._aws_profile,
+            '--region', self._aws_region,
+            '--recursive',
+            path,
+            '--exclude', '*',
+        ]
+        for artifact, runs in zip(artifacts, run_ids):
+            if artifact.kind != 'file':
+                continue
+            if artifact.scope == 'project':
+                for run_id in runs:
+                    command.extend([
+                        '--include',
+                        '/'.join(['shared', artifact.name]),
+                        '--include',
+                        '/'.join(['shared', artifact.name, '*']),
+                    ])
+            elif artifact.scope == 'user':
+                for run_id in runs:
+                    command.extend([
+                        '--include',
+                        '/'.join([
+                            'users', self._user, 'shared', artifact.name]),
+                        '--include',
+                        '/'.join([
+                            'users', self._user, 'shared', artifact.name, '*']),
+                    ])
+            elif artifact.scope == 'run':
+                for run_id in runs:
+                    command.extend([
+                        '--include',
+                        '/'.join([
+                            'users', self._user, 'runs', run_id,
+                            artifact.name,
+                        ]),
+                        '--include',
+                        '/'.join([
+                            'users', self._user, 'runs', run_id,
+                            artifact.name, '*',
+                        ]),
+                    ])
+
+        run_command(command)
 
     def push_artifacts(self, artifacts, run_ids):
         self.remove_remote_artifacts(artifacts, run_ids)

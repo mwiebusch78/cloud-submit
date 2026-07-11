@@ -62,7 +62,7 @@ class Controller:
             if parent_ref is None:
                 raise CloudSubmitError(
                     f'Could not find reference for image {image.parent}.')
-            env.pull_image(parent_ref)
+            env.pull_base_image(parent_ref)
         image.setup_builddir(path, parent_ref)
 
         print(f'Building image {image.name}.')
@@ -273,6 +273,7 @@ class Controller:
             images = [step.image for step in steps]
             self.build(images, build_id=run_id, env=build_env)
             refs = {}
+            overwrite_artifacts = []
             for step in steps:
                 image = self._config.images.get(step.image)
                 if image is None:
@@ -284,10 +285,19 @@ class Controller:
                         f'Could not find image ref for image {step.image}')
                 refs[step.name] = ref
 
+                for loc in step.outputs.values():
+                    overwrite_artifacts.append(
+                        self._config.artifacts[loc.artifact_name].copy())
+                for loc in step.temporaries.values():
+                    overwrite_artifacts.append(
+                        self._config.artifacts[loc.artifact_name].copy())
+
             temp_path = 'temp/run'
             ensure_path(temp_path, clear=True)
             env_handler.run_pipeline(
-                pipeline, refs, timestamp, run_id, temp_path)
+                pipeline, refs, overwrite_artifacts,
+                timestamp, run_id, temp_path,
+            )
         
         return {
             'run_id': run_id,

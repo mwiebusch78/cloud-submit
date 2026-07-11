@@ -52,10 +52,6 @@ if __name__ == '__main__':
         if step.name not in steps:
             continue
         print(f'Executing step: {step.name}')
-        for loc in step.temporaries.values():
-            eh.clear_artifact(get_artifact(loc.artifact_name))
-        for loc in step.outputs.values():
-            eh.clear_artifact(get_artifact(loc.artifact_name))
         for loc in step.inputs.values():
             if loc.is_local and loc.artifact_name not in synced_artifacts:
                 artifact = get_artifact(loc.artifact_name)

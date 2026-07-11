@@ -30,19 +30,6 @@ class BaseExecutionHandler:
             f'{artifact.name}.'
         )
 
-    def clear_artifact(self, artifact):
-        if artifact.kind != 'file':
-            raise RuntimeError(
-                f'Cannot clear artifact {artifact.name} '
-                f'of kind {artifact.kind}'
-            )
-        path = self.get_local_artifact_path(artifact)
-        shutil.rmtree(path, ignore_errors=True)
-        try:
-            os.remove(path)
-        except FileNotFoundError:
-            pass
-
     def download_artifact(self, artifact):
         print(f'Skipping download of artifact {artifact.name}.')
 

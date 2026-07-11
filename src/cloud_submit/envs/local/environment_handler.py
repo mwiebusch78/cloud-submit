@@ -28,7 +28,7 @@ class LocalEnv(EnvironmentHandler):
             os.path.join(path, 'execution_handler.py'),
         )
 
-    def pull_image(self, ref):
+    def pull_base_image(self, ref):
         result = run_command(
             [
                 self._docker_command,
@@ -59,7 +59,15 @@ class LocalEnv(EnvironmentHandler):
     def remove_remote_artifacts(self, artifacts, run_ids):
         pass
 
-    def run_pipeline(self, pipeline, image_refs, timestamp, run_id, temp_path):
+    def run_pipeline(
+        self,
+        pipeline,
+        image_refs,
+        overwrite_artifacts,
+        timestamp,
+        run_id,
+        temp_path,
+    ):
         artifacts_project_path = os.path.join('artifacts', 'shared')
         artifacts_user_path = os.path.join(
             'artifacts', 'users', self._user, 'shared')
@@ -68,13 +76,17 @@ class LocalEnv(EnvironmentHandler):
         ensure_path(artifacts_project_path)
         ensure_path(artifacts_user_path)
         ensure_path(artifacts_run_path)
+
+        self.remove_local_artifacts(
+            overwrite_artifacts, [[run_id]]*len(overwrite_artifacts))
+
         for step in pipeline.steps:
             if step.name not in image_refs:
                 continue
             ref = image_refs[step.name]
 
             worker_indices = [-1]
-            if step.num_workers is not None:
+            if step.num_workers is not None and step.num_workers > 1:
                 worker_indices = range(step.num_workers)
 
             for worker_index in worker_indices:

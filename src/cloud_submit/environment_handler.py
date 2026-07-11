@@ -108,7 +108,19 @@ class EnvironmentHandler:
                 f'.{self.name}'
             )
 
-    def pull_image(self, ref):
+    def pull_base_image(self, ref):
+        """Pull an image from the remote registry.
+        
+        Note:
+          Derived classes usually need to overload this to handle authentication
+          with the remote registry. In a local environment where there is no
+          remote registry this function should check if the requested image
+          exists locally and raise a ``CloudSubmitError`` if it does not.
+          This function is never called for execution images.
+
+        Args:
+          ref (str): The full docker image reference for the requested image.
+        """
         run_command([
             self._docker_command,
             'pull',
@@ -116,6 +128,14 @@ class EnvironmentHandler:
         ])
 
     def list_local_image_tags(self, repo_name):
+        """List locally available tags for a docker image repo.
+
+        Args:
+          repo_name (str): The fully qualified name of the docker image repo.
+
+        Returns:
+          tags (list of str): The list of tags that are available locally.
+        """
         result = run_command(
             [
                 self._docker_command,
@@ -133,6 +153,19 @@ class EnvironmentHandler:
         return result.split('\n')
 
     def list_remote_image_tags(self, repo_name):
+        """List remotely available tags for a docker image repo.
+
+        Note:
+          Derived classes must overload this to handle communication with the
+          remote registry.
+
+        Args:
+          repo_name (str): The fully qualified name of the docker image repo.
+
+        Returns:
+          tags (list of str): The list of the tags that are available in the
+            remote registry.
+        """
         raise NotImplementedError
 
     def remove_local_image_refs(self, refs):
@@ -242,7 +275,15 @@ class EnvironmentHandler:
     def remove_remote_artifacts(self, artifacts, run_ids):
         raise NotImplementedError
 
-    def run_pipeline(self, pipeline, image_refs, timestamp, run_id, temp_path):
+    def run_pipeline(
+        self,
+        pipeline,
+        image_refs,
+        overwrite_artifacts,
+        timestamp,
+        run_id,
+        temp_path
+    ):
         raise NotImplementedError
 
     def print_logs(self, run_id, start_timestamp, stream=False):
