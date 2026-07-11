@@ -4,7 +4,7 @@ import polars as pl
 
 def generate_step(
     submit_timestamp,
-    num_rows,
+    num_samples,
     alpha,
     beta,
     sigma,
@@ -16,8 +16,8 @@ def generate_step(
     random_seed = int(submit_timestamp.timestamp()*1e6)
     rng = np.random.default_rng(random_seed)
 
-    x = rng.normal(size=num_rows)
-    y = alpha + beta*x + sigma*rng.normal(size=num_rows)
+    x = rng.normal(size=num_samples)
+    y = alpha + beta*x + sigma*rng.normal(size=num_samples)
 
     train_data = pl.DataFrame([
         pl.Series('x', x),

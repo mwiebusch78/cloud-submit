@@ -1,11 +1,34 @@
 import datetime as dt
 import cloud_submit as cs
 
+# csub automatically adds your project's src directory to sys.path, so
+# you can import any modules defined there.
+from parameters import PARAMS
+
 
 PROJECT_NAME = 'multi-worker'
 
 
 def build_config(project_root, userconfig):
+    """Create an instance of cloud_submit.Config describing your project.
+
+    Note:
+      The csub command expects a function with this name defined in
+      src/csub/build_config.py. It calls this function to obtain a
+      cloud_submit.Config object which describes the environments, images,
+      artifacts and pipelines defined in your project.
+
+    Args:
+      project_root (str): The root directory of your project.
+      userconfig (dict): A dict holding user-specific information. This
+        corresponds to the content of the file userconfigs/default.yaml
+        in your project directory (or some other yaml file in that directory
+        if csub was called with the --user option).
+
+    Returns:
+      config (cloud_submit.Config): The config object describing the project.
+    """
+
     # Images
 
     images = [
@@ -40,10 +63,10 @@ def build_config(project_root, userconfig):
                 function='generate:generate_step',
                 image='exec',
                 params={
-                    'num_rows': 100,
-                    'alpha': 1.0,
-                    'beta': 2.0,
-                    'sigma': 0.1,
+                    'num_samples': PARAMS['num_samples'],
+                    'alpha': PARAMS['alpha'],
+                    'beta': PARAMS['beta'],
+                    'sigma': PARAMS['sigma'],
                 },
                 outputs={
                     'train_data_path': cs.local('train_data.parquet'),
@@ -61,9 +84,9 @@ def build_config(project_root, userconfig):
                     'coefficients_path': cs.local('coefficients.json'),
                     'predictions_path': cs.local('predictions.parquet'),
                 },
-                num_workers=2,
-                pass_num_workers_as='num_workers',
-                pass_worker_index_as='worker_index',
+                num_workers=PARAMS['num_folds'],
+                pass_num_workers_as='num_folds',
+                pass_worker_index_as='fold_index',
             ),
         ],
     )

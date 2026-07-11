@@ -1,27 +1,51 @@
 import datetime as dt
 import cloud_submit as cs
 
+# import AWS-specific environments that ship with cloud_submit.
 import cloud_submit.envs.aws
 from cloud_submit.envs.aws import LocalAWSEnv, RemoteAWSEnv
+
+# csub automatically adds your project's src directory to sys.path, so
+# you can import any modules defined there.
+from parameters import PARAMS
 
 
 PROJECT_NAME = 'basic-aws'
 
 
 def build_config(project_root, userconfig):
+    """Create an instance of cloud_submit.Config describing your project.
+
+    Note:
+      The csub command expects a function with this name defined in
+      src/csub/build_config.py. It calls this function to obtain a
+      cloud_submit.Config object which describes the environments, images,
+      artifacts and pipelines defined in your project.
+
+    Args:
+      project_root (str): The root directory of your project.
+      userconfig (dict): A dict holding user-specific information. This
+        corresponds to the content of the file userconfigs/default.yaml
+        in your project directory (or some other yaml file in that directory
+        if csub was called with the --user option).
+
+    Returns:
+      config (cloud_submit.Config): The config object describing the project.
+    """
+
     # Images
 
     images = [
         cs.BaseImage(
             name='base',
-            instructions="""
+            instructions=r"""
             FROM python
-            RUN \\
-              cd /opt && \\
-              curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" \\
-                -o "awscliv2.zip" && \\
-              unzip awscliv2.zip && \\
-              ./aws/install && \\
+            RUN \
+              cd /opt && \
+              curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" \
+                -o "awscliv2.zip" && \
+              unzip awscliv2.zip && \
+              ./aws/install && \
               rm -rf awscliv2.zip aws
             RUN pip install --root-user-action=ignore polars numpy
             """,
@@ -55,11 +79,11 @@ def build_config(project_root, userconfig):
                 function='generate:generate_step',
                 image='exec',
                 params={
-                    'random_seed': 42,
-                    'num_rows': 100,
-                    'alpha': 1.0,
-                    'beta': 2.0,
-                    'sigma': 0.1,
+                    'random_seed': PARAMS['random_seed'],
+                    'num_samples': PARAMS['num_samples'],
+                    'alpha': PARAMS['alpha'],
+                    'beta': PARAMS['beta'],
+                    'sigma': PARAMS['sigma'],
                 },
                 outputs={
                     'train_data_path': cs.local('train_data.parquet'),
