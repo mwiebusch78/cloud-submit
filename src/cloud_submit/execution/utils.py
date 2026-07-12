@@ -1,4 +1,5 @@
 import os
+import sys
 import shutil
 import shlex
 import json
@@ -74,7 +75,9 @@ def write_json(obj, path):
         json.dump(obj, stream, default=_encode, indent=4)
 
 
-def run_command(command, check=True, **kwargs):
+def run_command(command, check=True, hide_stderr=False, **kwargs):
+    if check and hide_stderr:
+        kwargs['stderr'] = subprocess.PIPE
     try:
         result = subprocess.run(command, **kwargs)
     except FileNotFoundError:
@@ -85,6 +88,8 @@ def run_command(command, check=True, **kwargs):
     except KeyboardInterrupt:
         raise CloudSubmitError('Aborted on user request.')
     if check and result.returncode != 0:
+        if hide_stderr:
+            sys.stderr.write(result.stderr)
         msg = (
             f'Command exited with status code {result.returncode}:\n'
             + ' '.join([shlex.quote(part) for part in command])

@@ -77,16 +77,21 @@ class LocalAWSEnv(LocalEnv):
             ],
             stdout=subprocess.PIPE,
             text=True,
+            hide_stderr=True,
         )
         password = result.stdout.strip()
 
-        run_command([
-            self._docker_command,
-            'login',
-            '--username', 'AWS',
-            '--password', password,
-            self._docker_registry,
-        ])
+        run_command(
+            [
+                self._docker_command,
+                'login',
+                '--username', 'AWS',
+                '--password', password,
+                self._docker_registry,
+            ],
+            hide_stderr=True,
+            stdout=subprocess.DEVNULL,
+        )
         self._last_docker_login_ts = now
 
     def install_execution_handler(self, path):

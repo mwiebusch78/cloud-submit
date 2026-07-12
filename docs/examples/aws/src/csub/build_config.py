@@ -72,7 +72,7 @@ def build_config(project_root, userconfig):
             cs.Step(
                 name='generate',
                 spec=cs.Spec(
-                    cpu=1,
+                    cpu=2,
                     memory=6.5,
                     disk=20,
                 ),

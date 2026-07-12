@@ -31,10 +31,10 @@ class BaseExecutionHandler:
         )
 
     def download_artifact(self, artifact):
-        print(f'Skipping download of artifact {artifact.name}.')
+        pass
 
     def upload_artifact(self, artifact):
-        print(f'Skipping upload of artifact {artifact.name}.')
+        pass
 
     def get_submit_timestamp(self):
         return dt.datetime.fromisoformat(os.environ['CSUB_TIMESTAMP'])
@@ -44,3 +44,6 @@ class BaseExecutionHandler:
 
     def get_worker_index(self):
         return int(os.environ['CSUB_WORKER_INDEX'])
+
+    def get_run_steps(self):
+        return os.environ['CSUB_RUN_STEPS'].split(',')

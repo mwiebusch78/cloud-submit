@@ -107,6 +107,7 @@ class RemoteAWSEnv(LocalAWSEnv):
             ],
             stdout=subprocess.PIPE,
             text=True,
+            hide_stderr=True,
         )
         result = json.loads(result.stdout)
         arns = set(s['stateMachineArn'] for s in result['stateMachines'])
@@ -134,6 +135,7 @@ class RemoteAWSEnv(LocalAWSEnv):
         step_names,
         timestamp,
         run_id,
+        run_steps,
         is_last,
     ):
         cpu = spec.get('cpu', 1)
@@ -174,7 +176,11 @@ class RemoteAWSEnv(LocalAWSEnv):
                                 },
                                 {
                                     "Name": "CSUB_WORKER_INDEX",
-                                    "Value": "0",
+                                    "Value": "-1",
+                                },
+                                {
+                                    "Name": "CSUB_RUN_STEPS",
+                                    "Value": run_steps,
                                 },
                             ],
                             "LogConfiguration": {
@@ -265,6 +271,7 @@ class RemoteAWSEnv(LocalAWSEnv):
         timestamp,
         run_id,
     ):
+        run_steps = ','.join(image_refs.keys())
         groups = self._group_steps(pipeline, image_refs)
         states = {}
         for task_index, group in enumerate(groups):
@@ -289,6 +296,7 @@ class RemoteAWSEnv(LocalAWSEnv):
                     step_names=step_names,
                     timestamp=timestamp,
                     run_id=run_id,
+                    run_steps=run_steps,
                     is_last=(task_index == len(groups) - 1),
                 )
             )
@@ -314,11 +322,11 @@ class RemoteAWSEnv(LocalAWSEnv):
     ):
         workflow_name = self._make_workflow_name(run_id)
         workflow = self._build_workflow(
-            pipeline,
-            image_refs,
-            workflow_name,
-            timestamp,
-            run_id,
+            pipeline=pipeline,
+            image_refs=image_refs,
+            workflow_name=workflow_name,
+            timestamp=timestamp,
+            run_id=run_id,
         )
 
         workflow_path = os.path.join(temp_path, f'{workflow_name}.json')
@@ -327,28 +335,35 @@ class RemoteAWSEnv(LocalAWSEnv):
 
         if self._check_workflow_exists(workflow_name):
             workflow_arn = self._make_workflow_arn(workflow_name)
-            run_command([
-                self._aws_command,
-                'stepfunctions',
-                'update-state-machine',
-                '--profile', self._aws_profile,
-                '--region', self._aws_region,
-                '--state-machine-arn', workflow_arn,
-                '--role-arn', self._stepfunctions_role_arn,
-                '--definition', f'file://{workflow_path}',
-            ])
+            run_command(
+                [
+                    self._aws_command,
+                    'stepfunctions',
+                    'update-state-machine',
+                    '--profile', self._aws_profile,
+                    '--region', self._aws_region,
+                    '--state-machine-arn', workflow_arn,
+                    '--role-arn', self._stepfunctions_role_arn,
+                    '--definition', f'file://{workflow_path}',
+                ],
+                stdout=subprocess.DEVNULL,
+            )
         else:
-            run_command([
-                self._aws_command,
-                'stepfunctions',
-                'create-state-machine',
-                '--profile', self._aws_profile,
-                '--region', self._aws_region,
-                '--name', workflow_name,
-                '--role-arn', self._stepfunctions_role_arn,
-                '--definition', f'file://{workflow_path}',
-            ])
+            run_command(
+                [
+                    self._aws_command,
+                    'stepfunctions',
+                    'create-state-machine',
+                    '--profile', self._aws_profile,
+                    '--region', self._aws_region,
+                    '--name', workflow_name,
+                    '--role-arn', self._stepfunctions_role_arn,
+                    '--definition', f'file://{workflow_path}',
+                ],
+                stdout=subprocess.DEVNULL,
+            )
 
+        print('Clearing output and temporary artifacts.')
         self.remove_remote_artifacts(
             overwrite_artifacts, [[run_id]]*len(overwrite_artifacts))
 

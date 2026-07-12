@@ -40,11 +40,13 @@ class ExecutionHandler(BaseExecutionHandler):
         local_path = self.get_local_artifact_path(artifact)
         local_path = os.path.dirname(local_path)
 
+        print(f'Downloading artifact {artifact.name}.')
         command = [
             self._container_aws_command,
             's3',
             'cp',
             '--recursive',
+            '--no-progress',
             remote_path,
             local_path,
             '--exclude', '*',
@@ -65,11 +67,13 @@ class ExecutionHandler(BaseExecutionHandler):
         local_path = self.get_local_artifact_path(artifact)
         local_path = os.path.dirname(local_path)
 
+        print(f'Uploading artifact {artifact.name}.')
         command = [
             self._container_aws_command,
             's3',
             'cp',
             '--recursive',
+            '--no-progress',
             local_path,
             remote_path,
             '--exclude', '*',

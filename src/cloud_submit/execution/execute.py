@@ -24,7 +24,7 @@ if __name__ == '__main__':
     pipelines = read_pipelines()
     artifacts = read_artifacts()
     try:
-        pipeline = pipelines[pipeline_name]
+        pipeline_steps = pipelines[pipeline_name]
     except KeyError:
         raise SystemExit(
             f'Invalid pipeline name: {pipeline_name}')
@@ -45,12 +45,17 @@ if __name__ == '__main__':
     timestamp = eh.get_submit_timestamp()
     run_id = eh.get_run_id()
     worker_index = eh.get_worker_index()
+    run_steps = set(eh.get_run_steps())
+    run_steps = [step.name for step in pipeline_steps if step.name in run_steps]
 
     synced_artifacts = set()
 
-    for step in pipeline:
+    for step in pipeline_steps:
         if step.name not in steps:
             continue
+        if step.name == run_steps[0] and step.num_workers is None:
+            print('STARTING EXECUTION.')
+
         print(f'Executing step: {step.name}')
         for loc in step.inputs.values():
             if loc.is_local and loc.artifact_name not in synced_artifacts:
@@ -81,8 +86,12 @@ if __name__ == '__main__':
         if step.pass_run_id_as is not None:
             kwargs[step.pass_run_id_as] = run_id
 
+        success = True
         try:
             function(**kwargs)
+        except Exception:
+            success = False
+            raise
         finally:
             remote_outputs = set(
                 l.artifact_name for l in step.outputs.values()
@@ -94,4 +103,6 @@ if __name__ == '__main__':
                     synced_artifacts.add(loc.artifact_name)
                     if loc.artifact_name not in remote_outputs:
                         eh.upload_artifact(artifact)
+            if success and step.name == run_steps[-1]:
+                print('EXECUTION FINISHED SUCCESSFULLY.')
 

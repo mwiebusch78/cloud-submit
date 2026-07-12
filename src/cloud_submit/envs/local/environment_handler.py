@@ -104,6 +104,7 @@ class LocalEnv(EnvironmentHandler):
                     '--env', f'CSUB_TIMESTAMP={timestamp.isoformat()}',
                     '--env', f'CSUB_RUN_ID={run_id}',
                     '--env', f'CSUB_WORKER_INDEX={worker_index}',
+                    '--env', f'CSUB_RUN_STEPS={",".join(image_refs.keys())}',
                     ref,
                     pipeline.name,
                     step.name,
