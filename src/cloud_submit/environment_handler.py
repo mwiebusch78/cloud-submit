@@ -4,6 +4,8 @@ import datetime as dt
 import uuid
 import subprocess
 import glob
+import shutil
+import errno
 
 from .execution.utils import (
     CloudSubmitError,
@@ -268,11 +270,41 @@ class EnvironmentHandler:
 
     def remove_local_artifacts(self, artifacts, run_ids):
         for artifact, runs in zip(artifacts, run_ids):
+            if artifact.kind != 'file':
+                continue
             for run_id in runs:
                 path = self.get_local_artifact_path(artifact, run_id)
                 clear_path(path)
 
     def remove_remote_artifacts(self, artifacts, run_ids):
+        raise NotImplementedError
+
+    def copy_local_artifacts(self, artifacts, from_run_id, to_run_id):
+        for artifact in artifacts:
+            src_path = self.get_local_artifact_path(artifact, from_run_id)
+            dst_path = self.get_local_artifact_path(artifact, to_run_id)
+            if os.path.exists(src_path):
+                ensure_path(os.path.dirname(dst_path))
+                try:
+                    shutil.copytree(src_path, dst_path)
+                except OSError as e:
+                    if e.errno in (errno.ENOTDIR, errno.EINVAL):
+                        shutil.copy(src_path, dst_path)
+                    else:
+                        raise
+
+    def copy_remote_artifacts(self, artifacts, from_run_id, to_run_id):
+        raise NotImplementedError
+
+    def move_local_artifacts(self, artifacts, from_run_id, to_run_id):
+        for artifact in artifacts:
+            src_path = self.get_local_artifact_path(artifact, from_run_id)
+            dst_path = self.get_local_artifact_path(artifact, to_run_id)
+            if os.path.exists(src_path):
+                ensure_path(os.path.dirname(dst_path))
+                shutil.move(src_path, dst_path)
+
+    def move_remote_artifacts(self, artifacts, from_run_id, to_run_id):
         raise NotImplementedError
 
     def run_pipeline(

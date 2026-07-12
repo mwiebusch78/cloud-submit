@@ -326,8 +326,6 @@ class LocalAWSEnv(LocalEnv):
         run_command(command)
 
     def push_artifacts(self, artifacts, run_ids):
-        self.remove_remote_artifacts(artifacts, run_ids)
-
         remote_path = '/'.join(
             ['s3:/', self._s3_bucket, self._s3_prefix, self._project])
         local_path = 'artifacts'
@@ -378,8 +376,6 @@ class LocalAWSEnv(LocalEnv):
         run_command(command)
 
     def pull_artifacts(self, artifacts, run_ids):
-        self.remove_local_artifacts(artifacts, run_ids)
-
         remote_path = '/'.join(
             ['s3:/', self._s3_bucket, self._s3_prefix, self._project])
         local_path = 'artifacts'
@@ -427,4 +423,56 @@ class LocalAWSEnv(LocalEnv):
                         '/'.join([run_dir(run_id), artifact.name, '*']),
                     ])
 
+        run_command(command)
+
+    def copy_remote_artifacts(self, artifacts, from_run_id, to_run_id):
+        base_path = '/'.join([
+            's3:/', self._s3_bucket, self._s3_prefix, self._project,
+            'users', self._user, 'runs',
+         ])
+        src_path = '/'.join([base_path, from_run_id])
+        dst_path = '/'.join([base_path, to_run_id])
+        command = [
+            self._aws_command,
+            's3',
+            'cp',
+            '--profile', self._aws_profile,
+            '--region', self._aws_region,
+            '--recursive',
+            src_path,
+            dst_path,
+            '--exclude', '*',
+        ]
+
+        for artifact in artifacts:
+            command.extend([
+                '--include', artifact.name,
+                '--include', '/'.join([artifact.name, '*'])
+            ])
+        run_command(command)
+
+    def move_remote_artifacts(self, artifacts, from_run_id, to_run_id):
+        base_path = '/'.join([
+            's3:/', self._s3_bucket, self._s3_prefix, self._project,
+            'users', self._user, 'runs',
+         ])
+        src_path = '/'.join([base_path, from_run_id])
+        dst_path = '/'.join([base_path, to_run_id])
+        command = [
+            self._aws_command,
+            's3',
+            'mv',
+            '--profile', self._aws_profile,
+            '--region', self._aws_region,
+            '--recursive',
+            src_path,
+            dst_path,
+            '--exclude', '*',
+        ]
+
+        for artifact in artifacts:
+            command.extend([
+                '--include', artifact.name,
+                '--include', '/'.join([artifact.name, '*'])
+            ])
         run_command(command)

@@ -229,7 +229,16 @@ re-built (but you can use --no-rebuild to prevent that).
     default=None,
 )
 @click.pass_context
-def run(ctx, env, build_env, run_id, timestamp, stream_logs, pipeline, steps):
+def run_pipeline(
+    ctx,
+    env,
+    build_env,
+    run_id,
+    timestamp,
+    stream_logs,
+    pipeline,
+    steps
+):
     init(ctx)
     config = ctx.obj['config']
     controller = ctx.obj['controller']
@@ -244,7 +253,7 @@ def run(ctx, env, build_env, run_id, timestamp, stream_logs, pipeline, steps):
 
     try:
         steps = get_steps(pipeline, steps)
-        execution_data = controller.run(
+        execution_data = controller.run_pipeline(
             pipeline.name,
             steps=steps,
             run_id=run_id,
@@ -759,7 +768,10 @@ def pull_artifacts(ctx, env, artifact_names, run_ids):
         env=env,
         remote=True,
     )
-    controller.pull_artifacts(artifact_names, run_id_lists)
+    try:
+        controller.pull_artifacts(artifact_names, run_id_lists)
+    except CloudSubmitError as e:
+        abort(str(e))
 
 
 @artifacts.command(
@@ -808,7 +820,150 @@ def push_artifacts(ctx, env, artifact_names, run_ids):
         env=env,
         remote=False,
     )
-    controller.push_artifacts(artifact_names, run_id_lists)
+    try:
+        controller.push_artifacts(artifact_names, run_id_lists)
+    except CloudSubmitError as e:
+        abort(str(e))
+
+
+@artifacts.command(
+    name='copy',
+    help='Copy artifacts from FROM_RUN_ID to TO_RUN_ID.',
+)
+@click.option(
+    '--env', '-e',
+    type=str,
+    default=None,
+    help='The name of the environment to use for copying artifacts.',
+)
+@click.option(
+    '--artifacts', '-a', 'artifact_names',
+    type=str,
+    default=None,
+    help=(
+        'Comma-separated list of names for the artifacts to copy. '
+        'If absent, all declared artifacts will be copied.'
+    ),
+)
+@click.option(
+    '--local',
+    is_flag=True,
+    help='Copy artifacts only locally.',
+)
+@click.option(
+    '--remote',
+    is_flag=True,
+    help='Copy artifacts only in remote storage.',
+)
+@click.argument('from_run_id', type=str)
+@click.argument('to_run_id', type=str)
+@click.pass_context
+def copy_artifacts(
+    ctx,
+    env,
+    artifact_names,
+    local,
+    remote,
+    from_run_id,
+    to_run_id
+):
+    if local and remote:
+        abort('The flags --local and --remote are mutually exclusive.')
+    init(ctx)
+    config = ctx.obj['config']
+    controller = ctx.obj['controller']
+
+    copy_local = True
+    copy_remote = True
+    if local:
+        copy_remote = False
+    if remote:
+        copy_local = False
+
+    if artifact_names is None:
+        artifact_names = list(config.artifacts.keys())
+    else:
+        artifact_names = list(set(artifact_names.split(',')))
+
+    try:
+        if copy_local:
+            controller.copy_artifacts(
+                artifact_names, from_run_id, to_run_id, remote=False, env=env)
+        if copy_remote:
+            controller.copy_artifacts(
+                artifact_names, from_run_id, to_run_id, remote=True, env=env)
+    except CloudSubmitError as e:
+        abort(str(e))
+
+
+@artifacts.command(
+    name='move',
+    help='Move artifacts from FROM_RUN_ID to TO_RUN_ID.',
+)
+@click.option(
+    '--env', '-e',
+    type=str,
+    default=None,
+    help='The name of the environment to use for moving artifacts.',
+)
+@click.option(
+    '--artifacts', '-a', 'artifact_names',
+    type=str,
+    default=None,
+    help=(
+        'Comma-separated list of names for the artifacts to move. '
+        'If absent, all declared artifacts will be moved.'
+    ),
+)
+@click.option(
+    '--local',
+    is_flag=True,
+    help='Move artifacts only locally.',
+)
+@click.option(
+    '--remote',
+    is_flag=True,
+    help='Move artifacts only in remote storage.',
+)
+@click.argument('from_run_id', type=str)
+@click.argument('to_run_id', type=str)
+@click.pass_context
+def move_artifacts(
+    ctx,
+    env,
+    artifact_names,
+    local,
+    remote,
+    from_run_id,
+    to_run_id
+):
+    if local and remote:
+        abort('The flags --local and --remote are mutually exclusive.')
+    init(ctx)
+    config = ctx.obj['config']
+    controller = ctx.obj['controller']
+
+    move_local = True
+    move_remote = True
+    if local:
+        move_remote = False
+    if remote:
+        move_local = False
+
+    if artifact_names is None:
+        artifact_names = list(config.artifacts.keys())
+    else:
+        artifact_names = list(set(artifact_names.split(',')))
+
+    try:
+        if move_local:
+            controller.move_artifacts(
+                artifact_names, from_run_id, to_run_id, remote=False, env=env)
+        if move_remote:
+            controller.move_artifacts(
+                artifact_names, from_run_id, to_run_id, remote=True, env=env)
+    except CloudSubmitError as e:
+        abort(str(e))
 
 
 # logs command

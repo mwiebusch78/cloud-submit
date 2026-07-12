@@ -59,6 +59,12 @@ class LocalEnv(EnvironmentHandler):
     def remove_remote_artifacts(self, artifacts, run_ids):
         pass
 
+    def copy_remote_artifacts(self, artifacts, from_run_id, to_run_id):
+        pass
+
+    def move_remote_artifacts(self, artifacts, from_run_id, to_run_id):
+        pass
+
     def run_pipeline(
         self,
         pipeline,

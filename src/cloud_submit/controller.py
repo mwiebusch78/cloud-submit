@@ -215,29 +215,85 @@ class Controller:
         self,
         artifact_names,
         run_ids,
-        remote=False,
         env=None,
     ):
         env_handler = self._config.get_run_env(env)
         artifacts = [
             self._config.artifacts[name].copy() for name in artifact_names]
         with self._config.in_project_root():
+            env_handler.remove_local_artifacts(artifacts, run_ids)
             env_handler.pull_artifacts(artifacts, run_ids)
 
     def push_artifacts(
         self,
         artifact_names,
         run_ids,
-        remote=False,
         env=None,
     ):
         env_handler = self._config.get_run_env(env)
         artifacts = [
             self._config.artifacts[name].copy() for name in artifact_names]
         with self._config.in_project_root():
+            env_handler.remove_remote_artifacts(artifacts, run_ids)
             env_handler.push_artifacts(artifacts, run_ids)
 
-    def run(
+    def copy_artifacts(
+        self,
+        artifact_names,
+        from_run_id,
+        to_run_id,
+        remote=False,
+        env=None,
+    ):
+        if from_run_id == to_run_id:
+            raise CloudSubmitError(
+                f'Source and destination run ID are identical: {from_run_id}')
+        env_handler = self._config.get_run_env(env)
+        artifacts = [
+            self._config.artifacts[name].copy() for name in artifact_names
+            if self._config.artifacts[name].scope == 'run'
+        ]
+        with self._config.in_project_root():
+            if remote:
+                env_handler.remove_remote_artifacts(
+                    artifacts, [[to_run_id]]*len(artifacts))
+                env_handler.copy_remote_artifacts(
+                    artifacts, from_run_id, to_run_id)
+            else:
+                env_handler.remove_local_artifacts(
+                    artifacts, [[to_run_id]]*len(artifacts))
+                env_handler.copy_local_artifacts(
+                    artifacts, from_run_id, to_run_id)
+
+    def move_artifacts(
+        self,
+        artifact_names,
+        from_run_id,
+        to_run_id,
+        remote=False,
+        env=None,
+    ):
+        if from_run_id == to_run_id:
+            raise CloudSubmitError(
+                f'Source and destination run ID are identical: {from_run_id}')
+        env_handler = self._config.get_run_env(env)
+        artifacts = [
+            self._config.artifacts[name].copy() for name in artifact_names
+            if self._config.artifacts[name].scope == 'run'
+        ]
+        with self._config.in_project_root():
+            if remote:
+                env_handler.remove_remote_artifacts(
+                    artifacts, [[to_run_id]]*len(artifacts))
+                env_handler.move_remote_artifacts(
+                    artifacts, from_run_id, to_run_id)
+            else:
+                env_handler.remove_local_artifacts(
+                    artifacts, [[to_run_id]]*len(artifacts))
+                env_handler.move_local_artifacts(
+                    artifacts, from_run_id, to_run_id)
+
+    def run_pipeline(
         self,
         pipeline,
         steps=None,
