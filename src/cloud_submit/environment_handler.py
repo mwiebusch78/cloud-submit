@@ -42,12 +42,88 @@ class EnvironmentHandler:
         return timestamp.strftime('%Y%m%d-%H%M%S-') + uid[:4]
 
     def generate_build_id(self, timestamp, build_id=None):
+        """Generate an ID for an image build.
+
+        Args:
+          timestamp (datetime): The current date and time.
+          build_id (str, optional): The build ID to return. A new unique ID
+            is only generated when `build_id` is ``None``.
+
+        Returns:
+          generated_build_id (str): Either `build_id` when `build_id` was
+            not ``None`` or a new unique ID generated based on `timestamp`.
+        """
         return self._generate_id(timestamp, build_id)
 
     def generate_run_id(self, timestamp, run_id=None):
+        """Generate an ID for a pipeline run.
+
+        Args:
+          timestamp (datetime): The current date and time.
+          run_id (str, optional): The run ID to return. A new unique ID
+            is only generated when `run_id` is ``None``.
+
+        Returns:
+          generated_run_id (str): Either `run_id` when `run_id` was
+            not ``None`` or a new unique ID generated based on `timestamp`.
+        """
         return self._generate_id(timestamp, run_id)
 
     def install_execution_handler(self, path):
+        """Install the execution handler under `path`.
+
+        Note:
+          Derived classes must implement this. They may assume that `path`
+          already exists and is a directory. This method must put a Python
+          module called ``execution_handler.py`` under `path`. That module
+          must define a function called ``create_execution_handler`` which
+          takes no arguments and returns an instance of ``BaseExecutionHandler``
+          (see below) or of a subclass thereof. When a cloud-submit container is
+          executed the ``create_execution_hander`` function is called and the
+          returned object is used to perform environment-specific operations
+          like uploading or downloading artifacts.
+
+          Typically, your ``execution_handler.py`` module will define a
+          subclass of ``BaseExecutionHandler`` and the
+          ``create_execution_hander`` function will return an instance of that
+          subclass. You may install additional modules or config files under
+          `path` if you wish. For example, you may want to include a
+          ``config.json`` file which holds additional config parameters like
+          the S3 bucket where you're artifacts are stored.
+
+          A few core cloud-submit modules and config files already exist in
+          `path` and should not be overwritten (unless you know what you're
+          doing). These files are:
+
+            base_execution_handler.py
+              A Python module providing the base class for all execution
+              handlers (``BaseExecutionHandler``).
+            config.py
+              A Python module providing classes commonly found in a cloud-submit
+              project configuration (e.g. ``Pipeline``, ``Artifact``,
+              ``ArtifactLocation`` or ``Step``).
+            execute.py
+              The Python module that serves as the main entrypoint of every
+              execution image.
+            utils.py
+              A Python module which provides some of the utility functions
+              from the ``cloud_submit`` package. (E.g. ``run_command``,
+              ``read_json`` or ``write_json``.)
+            artifacts.json
+              A JSON file with information about the artifacts defined for
+              the project.
+            pipelines.json
+              A JSON file with information about the pipelines defined for
+              the project.
+
+          Of course your ``execution_handler.py`` module (or any other modules
+          you install) may access the pre-installed modules via relative
+          imports.
+
+        Args:
+          path (str): The directory in which the execution handler should be
+            installed.
+        """
         raise NotImplementedError
 
     def _get_image_ref_path(self, image):
