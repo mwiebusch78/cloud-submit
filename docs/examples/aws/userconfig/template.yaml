@@ -1,1 +1,112 @@
-userconfig: # TODO: choose a user name.
+# Your username is used for keeping your artifacts, images and cloud resources
+# separate from those of other users.
+username: # TODO: choose a user name.
+
+# This is the ID of your AWS account. Make sure you specify it as a string,
+# e.g. "123456789012".
+aws_account_id: # TODO: add you AWS account ID.
+
+# This is the region where your AWS resources were/are created
+# (e.g. eu-north-1).
+aws_region: # TODO: add your AWS region.
+
+# This is the name of the profile that you want to use to authenticate with
+# AWS. Look at ~/.aws/config to see what profiles you have configured.
+# Normally there should be one called "default" which is the one that's used
+# when you run aws commands without a --profile option.
+aws_profile: default
+
+# This is the docker namespace that will be used to store docker images
+# needed in your project. You have to set up an Elastic Container Registy
+# in AWS in the region you specified under `aws_region`. Images under this
+# namespace must be mutable and you must allow repo creation on push for
+# this namespace. It is also recommended to enable blob mounting on the
+# registry.
+docker_namespace: csub
+
+# This is the name of the S3 bucket where your artifacts will be stored.
+s3_bucket: # TODO: add the name of your S3 bucket.
+
+# This is the S3 prefix under which your artifacts will be stored.
+s3_prefix: csub
+
+# If you want to run pipelines in AWS you have to set up a cluster in
+# Elastic Container Service (ECS). The cluster must allow the use
+# of managed EC2 instances (second option in the cluster creation form
+# in the AWS console).
+#
+# If you only want to do local runs you can use an string value for this
+# and all following parameters.
+ecs_cluster_arn: n/a # TODO: add the ARN of your ECS cluster.
+
+# The capacity provider should have been created automatically when you
+# created the cluster. To find its name, view your cluster in the AWS console
+# and look at the "Infrastructure" tab. Note that we need the *name* of the
+# capacity provider, not its ARN.
+ecs_capacity_provider: n/a # TODO: add the name of your capacity provider.
+
+# The infrastructure role is the role used to manage the managed EC2 instances
+# in your cluster. You should have created this role when you created the
+# cluster.
+ecs_infrastructure_role_arn: n/a # TODO: add the ARN of your infrastructure role
+
+# To create the next two roles you can open the form for creating a task
+# definition in ECS. In the "Task roles" sections it asks you to enter a
+# "Task role" and a "Task execution role". Next to the dropdowns there are
+# "Create new role" buttons which let you create those roles on the fly.
+# You do not need to complete the task definition after you have created
+# them.
+ecs_task_role_arn: n/a # TODO: add the ARN of your task role
+ecs_execution_role_arn: n/a # TODO: add the ARN of your task execution role
+
+# The stepfunction role is used to orchestrate your ECS tasks via AWS
+# Stepfunctions. This role should have the AWSLambdaRole policy and the
+# following custom inline policy:
+#
+# {
+#   "Version": "2012-10-17",
+#   "Statement": [
+#     {
+#       "Sid": "ECSOrchestrationPermissions",
+#       "Effect": "Allow",
+#       "Action": [
+#         "ecs:RegisterTaskDefinition",
+#         "ecs:DeregisterTaskDefinition",
+#         "ecs:RunTask",
+#         "ecs:DescribeTasks",
+#         "ecs:StopTask"
+#       ],
+#       "Resource": "*"
+#     },
+#     {
+#       "Sid": "PassRolesToECSInstances",
+#       "Effect": "Allow",
+#       "Action": "iam:PassRole",
+#       "Resource": [
+#         "{INSTANCE_ROLE_ARN}",
+#         "{INFRASTRUCTURE_ROLE_ARN}",
+#         "{TASK_EXECUTION_ROLE_ARN}",
+#         "{TASK_ROLE_ARN}"
+#       ]
+#     },
+#     {
+#       "Sid": "EventBridgeSyncTracking",
+#       "Effect": "Allow",
+#       "Action": [
+#         "events:PutTargets",
+#         "events:PutRule",
+#         "events:DescribeRule"
+#       ],
+#       "Resource": "arn:aws:events:*:*:rule/StepFunctionsGetEventsForECSTaskRule"
+#     }
+#   ]
+# }
+#
+# Here {INFRASTUCTURE_ROLE_ARN}, {TASK_EXECUTION_ROLE_ARN} and {TASK_ROLE_ARN}
+# are the role ARNs you specified earlier and {INSTANCE_ROLE_ARN} is the ARN
+# of another role that you set up when you created your cluster.
+#
+# Also note that the user you authenticate as when you submit a job (i.e. the
+# user of the profile you specified under `aws_profile`) must have permission
+# to assume the stepfunction role you specify here.
+stepfunctions_role_arn: n/a # TODO: add your stepfunctions role ARN.
