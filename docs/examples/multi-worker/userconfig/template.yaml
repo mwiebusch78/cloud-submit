@@ -4,4 +4,4 @@
 # (In this example we only use a single local environment, so there are no
 # other users here. But the username becomes very important when you're running
 # jobs in the cloud on an account that you share with other people.)
-userconfig: # TODO: choose a user name.
+username: # TODO: choose a user name.

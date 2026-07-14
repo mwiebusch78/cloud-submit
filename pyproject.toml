@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cloud-submit"
-version = "0.1.1"
+version = "0.1.2"
 authors = [
   { name="Martin Wiebusch" },
 ]
@@ -20,6 +20,10 @@ dependencies = [
     "click",
     "pyyaml",
 ]
+
+[project.urls]
+"Homepage" = "https://github.com/mwiebusch78/cloud-submit"
+"Bug Tracker" = "https://github.com/mwiebusch78/cloud-submit/issues"
 
 [project.scripts]
 csub = "cloud_submit.cli:main"
