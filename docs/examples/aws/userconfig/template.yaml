@@ -24,6 +24,11 @@ aws_profile: default
 # registry.
 docker_namespace: csub
 
+# This is the value of the --platform option used when building docker images.
+# To build images that work on both x86_64 and ARM architecture set this to
+# "linux/amd64,linux/arm64"
+docker_platforms: null
+
 # This is the name of the S3 bucket where your artifacts will be stored.
 s3_bucket: # TODO: add the name of your S3 bucket.
 

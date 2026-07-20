@@ -10,6 +10,7 @@ from cloud_submit import (
     LocalEnv,
     ensure_path,
     CloudSubmitError,
+    ExecutionImage,
     build_docker_mount_option,
     run_command,
     parse_image_ref,
@@ -37,6 +38,7 @@ class LocalAWSEnv(LocalEnv):
         s3_prefix,
         docker_command='docker',
         docker_namespace='csub',
+        docker_platforms=None,
         docker_login_refresh_hours=6,
         aws_command='aws',
     ):
@@ -56,6 +58,9 @@ class LocalAWSEnv(LocalEnv):
         self._s3_prefix = str(s3_prefix)
         self._aws_command = str(aws_command)
         self._docker_login_refresh_hours = float(docker_login_refresh_hours)
+        self._docker_platforms = docker_platforms
+        if self._docker_platforms is not None:
+            self._docker_platforms = str(docker_platforms)
 
         self._last_docker_login_ts = None
 
@@ -102,26 +107,21 @@ class LocalAWSEnv(LocalEnv):
         )
 
     def _build_image(self, path, image, build_id, push):
-        ref = super().build_image(path, image, build_id)
-        self._docker_login()
-
-        if push:
-            # push image
-            run_command([self._docker_command, 'push', ref])
-
-            # get image digest
-            result = run_command(
-                [
-                    self._docker_command,
-                    'buildx', 'imagetools', 'inspect',
-                    '--format', '{{json .Manifest.Digest}}',
-                    ref,
-                ],
-                stdout=subprocess.PIPE,
-                text=True,
-            )
-            digest = result.stdout.strip('"')
-            return ref + '@' + digest
+        if not push:
+            ref = super().build_image(path, image, build_id)
+        else:
+            self._docker_login()
+            repo = self.get_image_repo_name(image)
+            ref = ':'.join([repo, build_id])
+            command = [
+                self._docker_command,
+                'buildx',
+                'build',
+            ]
+            if self._docker_platforms is not None:
+                command.extend(['--platform', self._docker_platforms])
+            command.extend(['-t', ref, '--push', path])
+            run_command(command)
         return ref
 
     def build_image(self, path, image, build_id):
@@ -134,13 +134,10 @@ class LocalAWSEnv(LocalEnv):
 
     def pull_base_image(self, ref):
         self._docker_login()
-        run_command([
-            self._docker_command,
-            'pull',
-            ref,
-        ])
+        command = [self._docker_command, 'pull', ref]
+        run_command(command)
 
-    def list_remote_image_tags(self, repo_name):
+    def _list_remote_image_tags(self, repo_name):
         self._docker_login()
         repo_name = '/'.join(repo_name.split('/')[1:])
         result = run_command(
@@ -159,6 +156,12 @@ class LocalAWSEnv(LocalEnv):
         result = json.loads(result.stdout)
         tags = [img['imageTag'] for img in result['imageIds']]
         return tags
+
+    def list_remote_image_tags(self, image):
+        if isinstance(image, ExecutionImage):
+            return []
+        repo_name = self.get_image_repo_name(image)
+        return self._list_remote_image_tags(repo_name)
 
     def remove_remote_image_refs(self, refs):
         tags = {}

@@ -44,7 +44,7 @@ class LocalEnv(EnvironmentHandler):
                 f'Could not find image {ref}. You may have to build it again.'
             )
 
-    def list_remote_image_tags(self, repo_name):
+    def list_remote_image_tags(self, image):
         return []
 
     def remove_remote_image_refs(self, refs):
@@ -96,7 +96,7 @@ class LocalEnv(EnvironmentHandler):
                 worker_indices = range(step.num_workers)
 
             for worker_index in worker_indices:
-                run_command([
+                command = [
                     self._docker_command,
                     'run',
                     '--rm',
@@ -114,7 +114,8 @@ class LocalEnv(EnvironmentHandler):
                     ref,
                     pipeline.name,
                     step.name,
-                ])
+                ]
+                run_command(command)
 
     def print_logs(self, run_id, start_timestamp, stream=False):
         raise CloudSubmitError(

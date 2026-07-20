@@ -28,6 +28,7 @@ class RemoteAWSEnv(LocalAWSEnv):
         stepfunctions_role_arn,
         docker_command='docker',
         docker_namespace='csub',
+        docker_platforms=None,
         docker_login_refresh_hours=6,
         aws_command='aws',
         log_group_prefix='/ecs/csub/',
@@ -44,6 +45,7 @@ class RemoteAWSEnv(LocalAWSEnv):
             s3_prefix=s3_prefix,
             docker_command=docker_command,
             docker_namespace=docker_namespace,
+            docker_platforms=docker_platforms,
             docker_login_refresh_hours=docker_login_refresh_hours,
             aws_command=aws_command,
         )
@@ -63,6 +65,10 @@ class RemoteAWSEnv(LocalAWSEnv):
             build_id=build_id, 
             push=True,
         )
+
+    def list_remote_image_tags(self, image):
+        repo_name = self.get_image_repo_name(image)
+        return self._list_remote_image_tags(repo_name)
 
     def install_execution_handler(self, path):
         sourcedir = os.path.dirname(__file__)
@@ -333,8 +339,8 @@ class RemoteAWSEnv(LocalAWSEnv):
         with open(workflow_path, 'w') as stream:
             json.dump(workflow, stream)
 
+        workflow_arn = self._make_workflow_arn(workflow_name)
         if self._check_workflow_exists(workflow_name):
-            workflow_arn = self._make_workflow_arn(workflow_name)
             run_command(
                 [
                     self._aws_command,

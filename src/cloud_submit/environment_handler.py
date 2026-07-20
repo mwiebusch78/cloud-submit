@@ -19,13 +19,13 @@ from .execution.config import to_utc
 
 class EnvironmentHandler:
     def __init__(
-            self,
-            name,
-            project,
-            user,
-            docker_command='docker',
-            docker_registry=None,
-            docker_namespace='csub',
+        self,
+        name,
+        project,
+        user,
+        docker_command='docker',
+        docker_registry=None,
+        docker_namespace='csub',
     ):
         self.name = name
         self._project = project
@@ -199,21 +199,20 @@ class EnvironmentHandler:
         Args:
           ref (str): The full docker image reference for the requested image.
         """
-        run_command([
-            self._docker_command,
-            'pull',
-            ref,
-        ])
+        command = [self._docker_command, 'pull', ref]
+        run_command(command)
 
-    def list_local_image_tags(self, repo_name):
+    def list_local_image_tags(self, image):
         """List locally available tags for a docker image repo.
 
         Args:
-          repo_name (str): The fully qualified name of the docker image repo.
+          image (cloud_submit.Image): The object describing the docker image
+            whose tags should be listed.
 
         Returns:
           tags (list of str): The list of tags that are available locally.
         """
+        repo_name = self.get_image_repo_name(image)
         result = run_command(
             [
                 self._docker_command,
@@ -230,7 +229,7 @@ class EnvironmentHandler:
             return []
         return result.split('\n')
 
-    def list_remote_image_tags(self, repo_name):
+    def list_remote_image_tags(self, image):
         """List remotely available tags for a docker image repo.
 
         Note:
@@ -238,7 +237,8 @@ class EnvironmentHandler:
           remote registry.
 
         Args:
-          repo_name (str): The fully qualified name of the docker image repo.
+          image (cloud_submit.Image): The object describing the docker image
+            whose tags should be listed.
 
         Returns:
           tags (list of str): The list of the tags that are available in the
@@ -260,12 +260,14 @@ class EnvironmentHandler:
     def build_image(self, path, image, build_id):
         repo = self.get_image_repo_name(image)
         ref = ':'.join([repo, build_id])
-        run_command([
+        command = [
             self._docker_command,
+            'buildx',
             'build',
             '-t', ref,
             path,
-        ])
+        ]
+        run_command(command)
         return ref
 
     def get_local_artifact_path(self, artifact, run_id=None):

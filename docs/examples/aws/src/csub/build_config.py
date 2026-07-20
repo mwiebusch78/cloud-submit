@@ -39,7 +39,7 @@ def build_config(project_root, userconfig):
         cs.BaseImage(
             name='base',
             instructions=r"""
-            FROM python
+            FROM python:3.12.3
             RUN \
               cd /opt && \
               curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" \
@@ -125,6 +125,7 @@ def build_config(project_root, userconfig):
                 aws_region=userconfig['aws_region'],
                 aws_profile=userconfig['aws_profile'],
                 docker_namespace=userconfig['docker_namespace'],
+                docker_platforms=userconfig['docker_platforms'],
                 s3_bucket=userconfig['s3_bucket'],
                 s3_prefix=userconfig['s3_prefix'],
             ),
@@ -136,6 +137,7 @@ def build_config(project_root, userconfig):
                 aws_region=userconfig['aws_region'],
                 aws_profile=userconfig['aws_profile'],
                 docker_namespace=userconfig['docker_namespace'],
+                docker_platforms=userconfig['docker_platforms'],
                 s3_bucket=userconfig['s3_bucket'],
                 s3_prefix=userconfig['s3_prefix'],
                 ecs_cluster_arn=userconfig['ecs_cluster_arn'],

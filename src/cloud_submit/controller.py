@@ -116,9 +116,9 @@ class Controller:
             image = self._config.images[image]
             repo_name = env_handler.get_image_repo_name(image)
             if remote:
-                tags = env_handler.list_remote_image_tags(repo_name)
+                tags = env_handler.list_remote_image_tags(image)
             else:
-                tags = env_handler.list_local_image_tags(repo_name)
+                tags = env_handler.list_local_image_tags(image)
             if ids is not None:
                 tags = [t for t in tags if t in ids]
             for tag in tags:
