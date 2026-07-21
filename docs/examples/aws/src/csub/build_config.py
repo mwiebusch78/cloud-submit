@@ -40,10 +40,15 @@ def build_config(project_root, userconfig):
             name='base',
             instructions=r"""
             FROM python:3.12.3
+            ARG TARGETARCH
             RUN \
+              case "$TARGETARCH" in \
+                amd64) url="https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" ;; \
+                arm64) url="https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" ;; \
+                *) echo "unsupported architecture: $TARGETARCH" >&2; exit 1 ;; \
+              esac && \
               cd /opt && \
-              curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" \
-                -o "awscliv2.zip" && \
+              curl "$url" -o "awscliv2.zip" && \
               unzip awscliv2.zip && \
               ./aws/install && \
               rm -rf awscliv2.zip aws
