@@ -126,41 +126,7 @@ class EnvironmentHandler:
         """
         raise NotImplementedError
 
-    def _get_image_ref_path(self, image):
-        if isinstance(image, BaseImage):
-            image_name = image.name
-        elif isinstance(image, ExecutionImage):
-            image_name = '.'.join([image.name, self.name])
-        else:
-            raise ValueError(f'Cannot handle image of type {type(image)}')
-
-        return os.path.join('images', self._user, image_name)
-
-    def get_image_ref(self, image):
-        ensure_path(os.path.join('images', self._user))
-        path = self._get_image_ref_path(image)
-        try:
-            with open(path, 'r') as stream:
-                ref = stream.read().strip()
-        except FileNotFoundError:
-            return None
-        return ref
-
-    def save_image_ref(self, image, ref):
-        ensure_path(os.path.join('images', self._user))
-        path = self._get_image_ref_path(image)
-        with open(path, 'w') as stream:
-            stream.write(ref)
-
-    def clear_image_ref(self, image):
-        ensure_path(os.path.join('images', self._user))
-        path = self._get_image_ref_path(image)
-        try:
-            os.remove(path)
-        except FileNotFoundError:
-            pass
-
-    def get_image_repo_name(self, image):
+    def get_image_repo(self, image):
         prefix = []
         if self._docker_registry is not None:
             prefix.append(self._docker_registry)
@@ -212,7 +178,7 @@ class EnvironmentHandler:
         Returns:
           tags (list of str): The list of tags that are available locally.
         """
-        repo_name = self.get_image_repo_name(image)
+        repo_name = self.get_image_repo(image)
         result = run_command(
             [
                 self._docker_command,
@@ -258,7 +224,7 @@ class EnvironmentHandler:
         raise NotImplementedError
 
     def build_image(self, path, image, build_id):
-        repo = self.get_image_repo_name(image)
+        repo = self.get_image_repo(image)
         ref = ':'.join([repo, build_id])
         command = [
             self._docker_command,

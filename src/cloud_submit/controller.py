@@ -32,14 +32,44 @@ class Controller:
         self._config.export_pipelines(os.path.join(path, 'pipelines.json'))
         self._config.export_artifacts(os.path.join(path, 'artifacts.json'))
 
+    def _get_image_ref_path(self, image):
+        if not isinstance(image, BaseImage):
+            raise ValueError(f'Cannot handle image of type {type(image)}')
+        return os.path.join('images', self._config.user_name, image.name)
+
+    def _get_image_ref(self, image):
+        ensure_path(os.path.join('images', self._config.user_name))
+        path = self._get_image_ref_path(image)
+        try:
+            with open(path, 'r') as stream:
+                ref = stream.read().strip()
+        except FileNotFoundError:
+            return None
+        return ref
+
+    def _save_image_ref(self, image, ref):
+        ensure_path(os.path.join('images', self._config.user_name))
+        path = self._get_image_ref_path(image)
+        with open(path, 'w') as stream:
+            stream.write(ref)
+
+    def _clear_image_ref(self, image):
+        ensure_path(os.path.join('images', self._config.user_name))
+        path = self._get_image_ref_path(image)
+        try:
+            os.remove(path)
+        except FileNotFoundError:
+            pass
+
     def _build_image(self, image, build_id, env, rebuild=False):
-        if not rebuild:
-            ref = env.get_image_ref(image)
+        is_execution_image = isinstance(image, ExecutionImage)
+
+        if not rebuild and not is_execution_image:
+            ref = self._get_image_ref(image)
             if ref is not None:
                 print(f'Using existing build of {image.name}: {ref}')
                 return ref
 
-        is_execution_image = isinstance(image, ExecutionImage)
         path = os.path.join('temp', 'build', image.name)
         if is_execution_image:
             path = os.path.join(path, env.name)
@@ -58,7 +88,7 @@ class Controller:
             if parent_image is None:
                 raise CloudSubmitError(
                     f'Could not find declaration for image {image.parent}.')
-            parent_ref = env.get_image_ref(parent_image)
+            parent_ref = self._get_image_ref(parent_image)
             if parent_ref is None:
                 raise CloudSubmitError(
                     f'Could not find reference for image {image.parent}.')
@@ -72,9 +102,10 @@ class Controller:
                 'build_image method of environment handler did not '
                 'return a valid image reference.'
             )
-        env.save_image_ref(image, ref)
+        if not is_execution_image:
+            self._save_image_ref(image, ref)
 
-    def build(self, images, build_id=None, env=None):
+    def build_images(self, images, build_id=None, env=None):
         now = dt.datetime.now(tz=dt.UTC)
         env_handler = self._config.get_build_env(env)
         build_id = env_handler.generate_build_id(now, build_id)
@@ -114,7 +145,7 @@ class Controller:
         results = []
         for image in images:
             image = self._config.images[image]
-            repo_name = env_handler.get_image_repo_name(image)
+            repo_name = env_handler.get_image_repo(image)
             if remote:
                 tags = env_handler.list_remote_image_tags(image)
             else:
@@ -125,8 +156,7 @@ class Controller:
                 results.append(':'.join([repo_name, tag]))
         return results
 
-    def list_images(self, images=None, env=None):
-        env_handler = self._config.get_build_env(env)
+    def list_images(self, images=None):
         if images is not None:
             images = set(images)
         result = []
@@ -136,11 +166,12 @@ class Controller:
                     continue
                 if isinstance(i, BaseImage):
                     tpe = 'base'
+                    ref = self._get_image_ref(i)
                 elif isinstance(i, ExecutionImage):
                     tpe = 'execution'
+                    ref = None
                 else:
                     raise ValueError('Unknown image type.')
-                ref = env_handler.get_image_ref(i)
                 result.append((i.name, tpe, ref))
         return result
 
@@ -156,16 +187,26 @@ class Controller:
         image = self._config.images.get(image_name)
         if image is None:
             raise CloudSubmitError(f'Unknown image name {image_name}.')
+        if not isinstance(image, BaseImage):
+            raise CloudSubmitError(
+                f'Cannot set ref for image {image_name} '
+                'since it is not a base image.'
+            )
         with self._config.in_project_root():
-            env_handler.save_image_ref(image, ref)
+            self._save_image_ref(image, ref)
 
     def unset_image(self, image_name, env=None):
         env_handler = self._config.get_build_env(env)
         image = self._config.images.get(image_name)
         if image is None:
             raise CloudSubmitError(f'Unknown image name {image_name}.')
+        if not isinstance(image, BaseImage):
+            raise CloudSubmitError(
+                f'Cannot unset ref for image {image_name} '
+                'since it is not a base image.'
+            )
         with self._config.in_project_root():
-            env_handler.clear_image_ref(image)
+            self._clear_image_ref(image)
 
     def list_artifacts(
         self,
@@ -327,7 +368,7 @@ class Controller:
 
         with self._config.in_project_root():
             images = [step.image for step in steps]
-            self.build(images, build_id=run_id, env=build_env)
+            self.build_images(images, build_id=run_id, env=build_env)
             refs = {}
             overwrite_artifacts = []
             for step in steps:
@@ -335,11 +376,8 @@ class Controller:
                 if image is None:
                     raise CloudSubmitError(
                         f'Cannot find declaration for image {step.image}.')
-                ref = env_handler.get_image_ref(image)
-                if ref is None:
-                    raise CloudSubmitError(
-                        f'Could not find image ref for image {step.image}')
-                refs[step.name] = ref
+                repo = env_handler.get_image_repo(image)
+                refs[step.name] = ':'.join([repo, run_id])
 
                 for loc in step.outputs.values():
                     overwrite_artifacts.append(

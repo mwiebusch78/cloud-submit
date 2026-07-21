@@ -111,7 +111,7 @@ class LocalAWSEnv(LocalEnv):
             ref = super().build_image(path, image, build_id)
         else:
             self._docker_login()
-            repo = self.get_image_repo_name(image)
+            repo = self.get_image_repo(image)
             ref = ':'.join([repo, build_id])
             command = [
                 self._docker_command,
@@ -160,7 +160,7 @@ class LocalAWSEnv(LocalEnv):
     def list_remote_image_tags(self, image):
         if isinstance(image, ExecutionImage):
             return []
-        repo_name = self.get_image_repo_name(image)
+        repo_name = self.get_image_repo(image)
         return self._list_remote_image_tags(repo_name)
 
     def remove_remote_image_refs(self, refs):

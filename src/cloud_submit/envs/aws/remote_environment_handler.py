@@ -67,7 +67,7 @@ class RemoteAWSEnv(LocalAWSEnv):
         )
 
     def list_remote_image_tags(self, image):
-        repo_name = self.get_image_repo_name(image)
+        repo_name = self.get_image_repo(image)
         return self._list_remote_image_tags(repo_name)
 
     def install_execution_handler(self, path):

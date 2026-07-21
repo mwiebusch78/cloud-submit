@@ -303,11 +303,11 @@ def images():
 @click.option(
     '--all', '-a', 'build_all',
     is_flag=True,
-    help='Build all images.',
+    help='Ignore IMAGES arguments and build all base images.',
 )
 @click.argument('images', type=str, nargs=-1)
 @click.pass_context
-def build(ctx, env, build_id, build_all, images):
+def build_images(ctx, env, build_id, build_all, images):
     init(ctx)
     config = ctx.obj['config']
     controller = ctx.obj['controller']
@@ -316,9 +316,12 @@ def build(ctx, env, build_id, build_all, images):
         if image not in config.images:
             abort(f'No definition found for image {image}.')
     if build_all:
-        images = list(config.images.keys())
+        images = [
+            image for name, image in config.images.items()
+            if isinstance(image, BaseImage)
+        ]
     try:
-        controller.build(images, build_id=build_id, env=env)
+        controller.build_images(images, build_id=build_id, env=env)
     except CloudSubmitError as e:
         abort(str(e))
 
@@ -495,7 +498,10 @@ def remove_images(ctx, env, images, local, remote, build_ids):
 def set_image(ctx, env, image, ref):
     init(ctx)
     controller = ctx.obj['controller']
-    controller.set_image(image, ref, env=env)
+    try:
+        controller.set_image(image, ref, env=env)
+    except CloudSubmitError as e:
+        abort(str(e))
 
 
 @images.command(
@@ -522,7 +528,10 @@ def unset_image(ctx, env, unset_all, images):
     if unset_all:
         images = list(config.images.keys())
     for image in images:
-        controller.unset_image(image, env=env)
+        try:
+            controller.unset_image(image, env=env)
+        except CloudSubmitError as e:
+            abort(str(e))
 
 
 # artifacts subgroup
