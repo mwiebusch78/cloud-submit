@@ -71,7 +71,7 @@ class LocalAWSEnv(LocalEnv):
                 (now - self._last_docker_login_ts).total_seconds()
             if seconds_since_last_login < self._docker_login_refresh_hours*3600:
                 return
-            
+
         result = run_command(
             [
                 self._aws_command,
@@ -117,6 +117,7 @@ class LocalAWSEnv(LocalEnv):
                 self._docker_command,
                 'buildx',
                 'build',
+                *(image.args),
             ]
             if self._docker_platforms is not None:
                 command.extend(['--platform', self._docker_platforms])
@@ -128,7 +129,7 @@ class LocalAWSEnv(LocalEnv):
         return self._build_image(
             path=path,
             image=image,
-            build_id=build_id, 
+            build_id=build_id,
             push=isinstance(image, BaseImage),
         )
 

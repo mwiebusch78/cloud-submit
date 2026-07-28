@@ -7,11 +7,13 @@ class Image:
         name,
         parent=None,
         instructions=None,
+        args=None,
         setup_builddir_callback=None,
     ):
         self.name = name
         self.parent = parent
         self._instructions = instructions if instructions is not None else ''
+        self.args = [] if args is None else list(args)
         self._setup_builddir_callback = setup_builddir_callback
 
     def setup_builddir(self, path, base_image):
@@ -34,6 +36,7 @@ class ExecutionImage(Image):
         name,
         parent=None,
         instructions=None,
+        args=None,
         setup_builddir_callback=None,
         python_cmd='python',
     ):
@@ -41,6 +44,7 @@ class ExecutionImage(Image):
             name=name,
             parent=parent,
             instructions=instructions,
+            args=args,
             setup_builddir_callback=setup_builddir_callback,
         )
         self._python_cmd = python_cmd

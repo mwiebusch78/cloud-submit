@@ -154,7 +154,7 @@ class EnvironmentHandler:
 
     def pull_base_image(self, ref):
         """Pull an image from the remote registry.
-        
+
         Note:
           Derived classes usually need to overload this to handle authentication
           with the remote registry. In a local environment where there is no
@@ -230,6 +230,7 @@ class EnvironmentHandler:
             self._docker_command,
             'buildx',
             'build',
+            *(image.args),
             '-t', ref,
             path,
         ]
