@@ -26,6 +26,8 @@ class RemoteAWSEnv(LocalAWSEnv):
         ecs_execution_role_arn,
         ecs_task_role_arn,
         stepfunctions_role_arn,
+        envvars=None,
+        secrets=None,
         docker_command='docker',
         docker_namespace='csub',
         docker_platforms=None,
@@ -43,12 +45,17 @@ class RemoteAWSEnv(LocalAWSEnv):
             aws_profile=aws_profile,
             s3_bucket=s3_bucket,
             s3_prefix=s3_prefix,
+            envvars=envvars,
             docker_command=docker_command,
             docker_namespace=docker_namespace,
             docker_platforms=docker_platforms,
             docker_login_refresh_hours=docker_login_refresh_hours,
             aws_command=aws_command,
         )
+        if secrets is None:
+            self._secrets = {}
+        else:
+            self._secrets = dict(secrets)
         self._ecs_cluster_arn = str(ecs_cluster_arn)
         self._ecs_capacity_provider = str(ecs_capacity_provider)
         self._ecs_infrastructure_role_arn = str(ecs_infrastructure_role_arn)
@@ -62,7 +69,7 @@ class RemoteAWSEnv(LocalAWSEnv):
         return self._build_image(
             path=path,
             image=image,
-            build_id=build_id, 
+            build_id=build_id,
             push=True,
         )
 
@@ -147,6 +154,11 @@ class RemoteAWSEnv(LocalAWSEnv):
         cpu = spec.get('cpu', 1)
         memory = spec.get('memory', 2)
         disk = spec.get('disk', 10)
+        envvars = [
+            {"Name": str(name), "Value": str(value)}
+            for name, value in self._envvars.items()
+            if value is not None
+        ]
         return {
             f"RegisterTask{task_index}": {
                 "Type": "Task",
@@ -188,6 +200,7 @@ class RemoteAWSEnv(LocalAWSEnv):
                                     "Name": "CSUB_RUN_STEPS",
                                     "Value": run_steps,
                                 },
+                                *envvars,
                             ],
                             "LogConfiguration": {
                                 "LogDriver": "awslogs",

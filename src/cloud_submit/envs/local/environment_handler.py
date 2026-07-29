@@ -111,10 +111,15 @@ class LocalEnv(EnvironmentHandler):
                     '--env', f'CSUB_RUN_ID={run_id}',
                     '--env', f'CSUB_WORKER_INDEX={worker_index}',
                     '--env', f'CSUB_RUN_STEPS={",".join(image_refs.keys())}',
+                ]
+                for name, value in self._envvars.items():
+                    if value is not None:
+                        command.extend(['--env', f'{name}={value}'])
+                command.extend([
                     ref,
                     pipeline.name,
                     step.name,
-                ]
+                ])
                 run_command(command)
 
     def print_logs(self, run_id, start_timestamp, stream=False):

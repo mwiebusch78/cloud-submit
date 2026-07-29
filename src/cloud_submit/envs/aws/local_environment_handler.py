@@ -36,6 +36,7 @@ class LocalAWSEnv(LocalEnv):
         aws_profile,
         s3_bucket,
         s3_prefix,
+        envvars=None,
         docker_command='docker',
         docker_namespace='csub',
         docker_platforms=None,
@@ -46,6 +47,7 @@ class LocalAWSEnv(LocalEnv):
             name=name,
             project=project,
             user=user,
+            envvars=envvars,
             docker_command=docker_command,
             docker_registry=\
                 f'{aws_account_id}.dkr.ecr.{aws_region}.amazonaws.com',

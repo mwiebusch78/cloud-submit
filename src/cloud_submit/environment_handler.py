@@ -23,6 +23,7 @@ class EnvironmentHandler:
         name,
         project,
         user,
+        envvars=None,
         docker_command='docker',
         docker_registry=None,
         docker_namespace='csub',
@@ -30,6 +31,10 @@ class EnvironmentHandler:
         self.name = name
         self._project = project
         self._user = user
+        if envvars is None:
+            self._envvars = {}
+        else:
+            self._envvars = dict(envvars)
         self._docker_command = str(docker_command)
         self._docker_registry = docker_registry
         self._docker_namespace = docker_namespace
