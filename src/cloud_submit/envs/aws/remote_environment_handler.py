@@ -33,8 +33,8 @@ class RemoteAWSEnv(LocalAWSEnv):
         docker_platforms=None,
         docker_login_refresh_hours=6,
         aws_command='aws',
-        log_group_prefix='/ecs/csub/',
         container_aws_command='aws',
+        log_group_prefix='/ecs/csub/',
     ):
         super().__init__(
             name=name,
@@ -51,6 +51,7 @@ class RemoteAWSEnv(LocalAWSEnv):
             docker_platforms=docker_platforms,
             docker_login_refresh_hours=docker_login_refresh_hours,
             aws_command=aws_command,
+            container_aws_command=container_aws_command,
         )
         if secrets is None:
             self._secrets = {}
@@ -63,7 +64,6 @@ class RemoteAWSEnv(LocalAWSEnv):
         self._ecs_task_role_arn = str(ecs_task_role_arn)
         self._stepfunctions_role_arn = str(stepfunctions_role_arn)
         self._log_group_prefix = str(log_group_prefix)
-        self._container_aws_command = str(container_aws_command)
 
     def build_image(self, path, image, build_id):
         return self._build_image(
@@ -77,26 +77,26 @@ class RemoteAWSEnv(LocalAWSEnv):
         repo_name = self.get_image_repo(image)
         return self._list_remote_image_tags(repo_name)
 
-    def install_execution_handler(self, path):
-        sourcedir = os.path.dirname(__file__)
-        shutil.copyfile(
-            os.path.join(sourcedir, 'remote_execution_handler.py'),
-            os.path.join(path, 'execution_handler.py'),
-        )
-        shutil.copyfile(
-            os.path.join(sourcedir, 's3_tools.py'),
-            os.path.join(path, 's3_tools.py'),
-        )
-        write_json(
-            {
-                'project': self._project,
-                'user': self._user,
-                'container_aws_command': self._container_aws_command,
-                's3_bucket': self._s3_bucket,
-                's3_prefix': self._s3_prefix,
-            },
-            os.path.join(path, 'execution_config.json'),
-        )
+#     def install_execution_handler(self, path):
+#         sourcedir = os.path.dirname(__file__)
+#         shutil.copyfile(
+#             os.path.join(sourcedir, 'remote_execution_handler.py'),
+#             os.path.join(path, 'execution_handler.py'),
+#         )
+#         shutil.copyfile(
+#             os.path.join(sourcedir, 's3_tools.py'),
+#             os.path.join(path, 's3_tools.py'),
+#         )
+#         write_json(
+#             {
+#                 'project': self._project,
+#                 'user': self._user,
+#                 'container_aws_command': self._container_aws_command,
+#                 's3_bucket': self._s3_bucket,
+#                 's3_prefix': self._s3_prefix,
+#             },
+#             os.path.join(path, 'execution_config.json'),
+#         )
 
     def _make_workflow_name(self, run_id):
         return '--'.join([self._project, self._user, run_id])
@@ -159,6 +159,11 @@ class RemoteAWSEnv(LocalAWSEnv):
             for name, value in self._envvars.items()
             if value is not None
         ]
+        secrets = [
+            {"Name": str(name), "ValueFrom": str(value)}
+            for name, value in self._secrets.items()
+            if value is not None
+        ]
         return {
             f"RegisterTask{task_index}": {
                 "Type": "Task",
@@ -202,6 +207,7 @@ class RemoteAWSEnv(LocalAWSEnv):
                                 },
                                 *envvars,
                             ],
+                            "Secrets": secrets,
                             "LogConfiguration": {
                                 "LogDriver": "awslogs",
                                 "Options": {

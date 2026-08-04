@@ -11,6 +11,7 @@ from cloud_submit import (
     ensure_path,
     CloudSubmitError,
     ExecutionImage,
+    write_json,
     build_docker_mount_option,
     run_command,
     parse_image_ref,
@@ -42,6 +43,7 @@ class LocalAWSEnv(LocalEnv):
         docker_platforms=None,
         docker_login_refresh_hours=6,
         aws_command='aws',
+        container_aws_command='aws',
     ):
         super().__init__(
             name=name,
@@ -59,6 +61,7 @@ class LocalAWSEnv(LocalEnv):
         self._s3_bucket = str(s3_bucket)
         self._s3_prefix = str(s3_prefix)
         self._aws_command = str(aws_command)
+        self._container_aws_command = str(container_aws_command)
         self._docker_login_refresh_hours = float(docker_login_refresh_hours)
         self._docker_platforms = docker_platforms
         if self._docker_platforms is not None:
@@ -106,6 +109,20 @@ class LocalAWSEnv(LocalEnv):
         shutil.copyfile(
             os.path.join(sourcedir, 'local_execution_handler.py'),
             os.path.join(path, 'execution_handler.py'),
+        )
+        shutil.copyfile(
+            os.path.join(sourcedir, 's3_tools.py'),
+            os.path.join(path, 's3_tools.py'),
+        )
+        write_json(
+            {
+                'project': self._project,
+                'user': self._user,
+                'container_aws_command': self._container_aws_command,
+                's3_bucket': self._s3_bucket,
+                's3_prefix': self._s3_prefix,
+            },
+            os.path.join(path, 'execution_config.json'),
         )
 
     def _build_image(self, path, image, build_id, push):
@@ -276,7 +293,7 @@ class LocalAWSEnv(LocalEnv):
                 if len(key) > 1 and key[1] in run_artifacts:
                     artifact = key[1]
                     results[artifact].add(run_id)
-    
+
         results = [sorted(results[a.name]) for a in artifacts]
         return results
 
