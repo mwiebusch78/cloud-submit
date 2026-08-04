@@ -76,14 +76,29 @@ def write_json(obj, path):
 
 
 def run_command(command, check=True, hide_stderr=False, **kwargs):
+    for c in command:
+        if not (
+            isinstance(c, str) or (
+                isinstance(c, tuple) and
+                len(c) == 2 and
+                isinstance(c[0], str) and
+                isinstance(c[1], str)
+            )):
+            raise ValueError(
+                'command must be list of strings or pairs of strings.')
+    exec_cmd = [(c if isinstance(c, str) else c[0]) for c in command]
+    display_cmd = [
+        (shlex.quote(c) if isinstance(c, str) else c[1]) for c in command]
+    display_cmd = ' '.join(display_cmd)
+
     if check and hide_stderr:
         kwargs['stderr'] = subprocess.PIPE
     try:
-        result = subprocess.run(command, **kwargs)
+        result = subprocess.run(exec_cmd, **kwargs)
     except FileNotFoundError:
         raise CloudSubmitError(
             'Error. Command not found when trying to execute:\n'
-            + ' '.join([shlex.quote(part) for part in command])
+            + display_cmd
         )
     except KeyboardInterrupt:
         raise CloudSubmitError('Aborted on user request.')
@@ -92,7 +107,7 @@ def run_command(command, check=True, hide_stderr=False, **kwargs):
             sys.stderr.write(result.stderr)
         msg = (
             f'Command exited with status code {result.returncode}:\n'
-            + ' '.join([shlex.quote(part) for part in command])
+            + display_cmd
         )
         raise CloudSubmitError(msg)
     return result

@@ -46,6 +46,7 @@ class RemoteAWSEnv(LocalAWSEnv):
             s3_bucket=s3_bucket,
             s3_prefix=s3_prefix,
             envvars=envvars,
+            secrets=secrets,
             docker_command=docker_command,
             docker_namespace=docker_namespace,
             docker_platforms=docker_platforms,
@@ -53,10 +54,6 @@ class RemoteAWSEnv(LocalAWSEnv):
             aws_command=aws_command,
             container_aws_command=container_aws_command,
         )
-        if secrets is None:
-            self._secrets = {}
-        else:
-            self._secrets = dict(secrets)
         self._ecs_cluster_arn = str(ecs_cluster_arn)
         self._ecs_capacity_provider = str(ecs_capacity_provider)
         self._ecs_infrastructure_role_arn = str(ecs_infrastructure_role_arn)

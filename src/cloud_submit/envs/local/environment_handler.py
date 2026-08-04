@@ -115,6 +115,15 @@ class LocalEnv(EnvironmentHandler):
                 for name, value in self._envvars.items():
                     if value is not None:
                         command.extend(['--env', f'{name}={value}'])
+                for name, envvar in self._secrets.items():
+                    value = None
+                    if envvar is not None:
+                        value = os.environ.get(envvar)
+                    if value is not None:
+                        command.extend([
+                            '--env',
+                            (f'{name}={value}', f'{name}=${envvar}'),
+                         ])
                 command.extend([
                     ref,
                     pipeline.name,

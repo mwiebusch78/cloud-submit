@@ -31,25 +31,6 @@ def build_docker_mount_option(source, dest):
     )
 
 
-def run_command(command, check=True, **kwargs):
-    try:
-        result = subprocess.run(command, **kwargs)
-    except FileNotFoundError:
-        raise CloudSubmitError(
-            'Error. Command not found when trying to execute:\n'
-            + ' '.join([shlex.quote(part) for part in command])
-        )
-    except KeyboardInterrupt:
-        raise CloudSubmitError('Aborted on user request.')
-    if check and result.returncode != 0:
-        msg = (
-            f'Command exited with status code {result.returncode}:\n'
-            + ' '.join([shlex.quote(part) for part in command])
-        )
-        raise CloudSubmitError(msg)
-    return result
-
-
 _IMAGE_REF_REGEX = re.compile(
     '^([a-zA-Z0-9-.:]+)/([a-z0-9-_./]+):([a-zA-Z0-9-_.]+)(@([a-zA-Z0-9:]+))?$'
 )
