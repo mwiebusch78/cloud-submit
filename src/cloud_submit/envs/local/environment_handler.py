@@ -76,7 +76,7 @@ class LocalEnv(EnvironmentHandler):
     def remove_remote_image_refs(self, refs):
         pass
 
-    def get_remote_artifact_path(self, artifact, run_id=None):
+    def get_remote_artifact_ref(self, artifact, run_id=None):
         return ''
 
     def list_remote_artifacts(self, artifacts, run_ids=None):

@@ -249,7 +249,7 @@ class EnvironmentHandler:
         run_command(command)
         return ref
 
-    def get_local_artifact_path(self, artifact, run_id=None):
+    def get_local_artifact_ref(self, artifact, run_id=None):
         if artifact.kind != 'file':
             raise CloudSubmitError(
                 f'Cannot get path for local artifact {artifact.name}. '
@@ -273,7 +273,7 @@ class EnvironmentHandler:
             raise CloudSubmitError(
                 f'Unknown scope {artifact.scope} for artifact {artifact.name}.')
 
-    def get_remote_artifact_path(self, artifact, run_id=None):
+    def get_remote_artifact_ref(self, artifact, run_id=None):
         raise NotImplementedError
 
     def list_local_artifacts(self, artifacts, run_ids=None):
@@ -330,7 +330,7 @@ class EnvironmentHandler:
             if artifact.kind != 'file':
                 continue
             for run_id in runs:
-                path = self.get_local_artifact_path(artifact, run_id)
+                path = self.get_local_artifact_ref(artifact, run_id)
                 clear_path(path)
 
     def remove_remote_artifacts(self, artifacts, run_ids):
@@ -338,8 +338,8 @@ class EnvironmentHandler:
 
     def copy_local_artifacts(self, artifacts, from_run_id, to_run_id):
         for artifact in artifacts:
-            src_path = self.get_local_artifact_path(artifact, from_run_id)
-            dst_path = self.get_local_artifact_path(artifact, to_run_id)
+            src_path = self.get_local_artifact_ref(artifact, from_run_id)
+            dst_path = self.get_local_artifact_ref(artifact, to_run_id)
             if os.path.exists(src_path):
                 ensure_path(os.path.dirname(dst_path))
                 try:
@@ -355,8 +355,8 @@ class EnvironmentHandler:
 
     def move_local_artifacts(self, artifacts, from_run_id, to_run_id):
         for artifact in artifacts:
-            src_path = self.get_local_artifact_path(artifact, from_run_id)
-            dst_path = self.get_local_artifact_path(artifact, to_run_id)
+            src_path = self.get_local_artifact_ref(artifact, from_run_id)
+            dst_path = self.get_local_artifact_ref(artifact, to_run_id)
             if os.path.exists(src_path):
                 ensure_path(os.path.dirname(dst_path))
                 shutil.move(src_path, dst_path)

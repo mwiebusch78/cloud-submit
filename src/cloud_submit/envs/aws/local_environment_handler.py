@@ -17,7 +17,7 @@ from cloud_submit import (
     BaseImage,
 )
 
-from .s3_tools import  get_remote_artifact_path
+from .s3_tools import  get_remote_artifact_ref
 
 
 
@@ -209,8 +209,8 @@ class LocalAWSEnv(LocalEnv):
                 *[f'imageTag={tag}' for tag in tag_list],
             ])
 
-    def get_remote_artifact_path(self, artifact, run_id=None):
-        return get_remote_artifact_path(
+    def get_remote_artifact_ref(self, artifact, run_id=None):
+        return get_remote_artifact_ref(
             artifact,
             self._project,
             self._user,

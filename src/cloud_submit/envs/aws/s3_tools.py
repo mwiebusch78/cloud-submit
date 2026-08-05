@@ -6,7 +6,7 @@ except ImportError:
     from cloud_submit import CloudSubmitError
 
 
-def get_remote_artifact_path(
+def get_remote_artifact_ref(
     artifact,
     project,
     user,

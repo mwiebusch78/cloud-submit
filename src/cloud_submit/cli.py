@@ -615,10 +615,10 @@ def list_artifacts(ctx, env, artifacts, local, remote, run_ids):
                 artifact = config.artifacts[name]
                 for run_id in runs:
                     if local:
-                        path = env_handler.get_local_artifact_path(
+                        path = env_handler.get_local_artifact_ref(
                             artifact, run_id)
                     else:
-                        path = env_handler.get_remote_artifact_path(
+                        path = env_handler.get_remote_artifact_ref(
                             artifact, run_id)
                     data.append((
                         name,

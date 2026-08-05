@@ -1,7 +1,7 @@
 import os
 
 from .base_execution_handler import BaseExecutionHandler
-from .s3_tools import get_remote_artifact_path
+from .s3_tools import get_remote_artifact_ref
 from .utils import CloudSubmitError, run_command
 
 
@@ -19,7 +19,7 @@ class ExecutionHandler(BaseExecutionHandler):
 
     def get_artifact_reference(self, reference_type, artifact):
         if reference_type == 'uri':
-            return get_remote_artifact_path(
+            return get_remote_artifact_ref(
                 artifact,
                 self._project,
                 self._user,
