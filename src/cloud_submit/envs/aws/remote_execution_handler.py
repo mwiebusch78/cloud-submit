@@ -17,8 +17,8 @@ class ExecutionHandler(BaseExecutionHandler):
         self._s3_bucket = os.environ['CSUB_S3_BUCKET']
         self._s3_prefix = os.environ['CSUB_S3_PREFIX']
 
-    def get_artifact_location(self, location_type, artifact):
-        if location_type == 'uri':
+    def get_artifact_reference(self, reference_type, artifact):
+        if reference_type == 'uri':
             return get_remote_artifact_path(
                 artifact,
                 self._project,
@@ -27,7 +27,7 @@ class ExecutionHandler(BaseExecutionHandler):
                 self._s3_bucket,
                 self._s3_prefix,
             )
-        return super().get_artifact_location(location_type, artifact)
+        return super().get_artifact_reference(reference_type, artifact)
 
     def download_artifact(self, artifact):
         if artifact.kind != 'file':
@@ -36,9 +36,9 @@ class ExecutionHandler(BaseExecutionHandler):
                 "but only artifacts of kind 'file' are supported by this "
                 'environment.'
             )
-        remote_path = self.get_artifact_location('uri', artifact)
+        remote_path = self.get_artifact_reference('uri', artifact)
         remote_path = '/'.join(remote_path.split('/')[:-1])
-        local_path = self.get_artifact_location('path', artifact)
+        local_path = self.get_artifact_reference('path', artifact)
         local_path = os.path.dirname(local_path)
 
         print(f'Downloading artifact {artifact.name}.')
@@ -63,9 +63,9 @@ class ExecutionHandler(BaseExecutionHandler):
                 "but only artifacts of kind 'file' are supported by this "
                 'environment.'
             )
-        remote_path = self.get_artifact_location('uri', artifact)
+        remote_path = self.get_artifact_reference('uri', artifact)
         remote_path = '/'.join(remote_path.split('/')[:-1])
-        local_path = self.get_artifact_location('path', artifact)
+        local_path = self.get_artifact_reference('path', artifact)
         local_path = os.path.dirname(local_path)
 
         print(f'Uploading artifact {artifact.name}.')

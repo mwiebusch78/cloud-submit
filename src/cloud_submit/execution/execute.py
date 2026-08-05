@@ -35,9 +35,9 @@ if __name__ == '__main__':
         except KeyError:
             raise SystemExit(f'Invalid artifact name {name}')
 
-    def get_artifact_reference(eh, loc):
-        artifact = get_artifact(loc.artifact_name)
-        return eh.get_artifact_location(loc.location_type, artifact)
+    def get_artifact_reference(eh, ref):
+        artifact = get_artifact(ref.artifact_name)
+        return eh.get_artifact_reference(ref.reference_type, artifact)
 
     eh = create_execution_handler()
     timestamp = eh.get_submit_timestamp()
@@ -55,24 +55,24 @@ if __name__ == '__main__':
             print('STARTING EXECUTION.')
 
         print(f'Executing step: {step.name}')
-        for loc in step.inputs.values():
-            if eh.is_local_location_type(loc.location_type) \
-                    and loc.artifact_name not in synced_artifacts:
-                artifact = get_artifact(loc.artifact_name)
+        for ref in step.inputs.values():
+            if eh.is_local_reference_type(ref.reference_type) \
+                    and ref.artifact_name not in synced_artifacts:
+                artifact = get_artifact(ref.artifact_name)
                 eh.download_artifact(artifact)
-                synced_artifacts.add(loc.artifact_name)
+                synced_artifacts.add(ref.artifact_name)
 
         module_name, function_name = step.function.split(':')
         module = importlib.import_module(module_name)
         function = getattr(module, function_name)
 
         kwargs = copy.deepcopy(step.params)
-        for kw, loc in step.inputs.items():
-            kwargs[kw] = get_artifact_reference(eh, loc)
-        for kw, loc in step.outputs.items():
-            kwargs[kw] = get_artifact_reference(eh, loc)
-        for kw, loc in step.temporaries.items():
-            kwargs[kw] = get_artifact_reference(eh, loc)
+        for kw, ref in step.inputs.items():
+            kwargs[kw] = get_artifact_reference(eh, ref)
+        for kw, ref in step.outputs.items():
+            kwargs[kw] = get_artifact_reference(eh, ref)
+        for kw, ref in step.temporaries.items():
+            kwargs[kw] = get_artifact_reference(eh, ref)
         if step.num_workers is not None:
             if worker_index < 0:
                 raise SystemExit(
@@ -94,13 +94,13 @@ if __name__ == '__main__':
         finally:
             remote_outputs = set(
                 l.artifact_name for l in step.outputs.values()
-                if not eh.is_local_location_type(l.location_type)
+                if not eh.is_local_reference_type(l.reference_type)
             )
-            for loc in step.outputs.values():
-                artifact = get_artifact(loc.artifact_name)
-                if eh.is_local_location_type(loc.location_type):
-                    synced_artifacts.add(loc.artifact_name)
-                    if loc.artifact_name not in remote_outputs:
+            for ref in step.outputs.values():
+                artifact = get_artifact(ref.artifact_name)
+                if eh.is_local_reference_type(ref.reference_type):
+                    synced_artifacts.add(ref.artifact_name)
+                    if ref.artifact_name not in remote_outputs:
                         eh.upload_artifact(artifact)
             if success and step.name == run_steps[-1]:
                 print('EXECUTION FINISHED SUCCESSFULLY.')

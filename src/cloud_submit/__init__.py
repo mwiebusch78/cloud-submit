@@ -6,11 +6,11 @@ from .config import Config
 from .execution.config import (
     ConfigError,
     Artifact,
-    ArtifactLocation,
+    ArtifactReference,
     Spec,
     Step,
     Pipeline,
-    artifact,
+    aref,
 )
 from .execution.utils import (
     CloudSubmitError,

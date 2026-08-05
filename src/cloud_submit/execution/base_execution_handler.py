@@ -7,13 +7,13 @@ class BaseExecutionHandler:
     def __init__(self):
         pass
 
-    def is_local_location_type(self, location_type):
-        return location_type == 'path'
+    def is_local_reference_type(self, reference_type):
+        return reference_type == 'path'
 
-    def get_artifact_location(self, location_type, artifact):
-        if location_type != 'path':
+    def get_artifact_reference(self, reference_type, artifact):
+        if reference_type != 'path':
             raise RuntimeError(
-                f'Cannot handle location type {repr(location_type)}.')
+                f'Cannot handle reference type {repr(reference_type)}.')
         if artifact.kind != 'file':
             raise RuntimeError(
                 f'Cannot construct local path for artifact {artifact.name} '

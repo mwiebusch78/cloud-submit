@@ -59,35 +59,35 @@ class Artifact:
         )
 
 
-class ArtifactLocation:
+class ArtifactReference:
     def __init__(
         self,
         artifact_name,
-        location_type,
+        reference_type,
         sync=True,
     ):
         self.artifact_name = str(artifact_name)
-        self.location_type = str(location_type)
+        self.reference_type = str(reference_type)
         self.sync = bool(sync)
 
     def to_dict(self):
         return {
             'artifact_name': self.artifact_name,
-            'location_type': self.location_type,
+            'reference_type': self.reference_type,
             'sync': self.sync
         }
 
     @staticmethod
     def from_dict(obj):
-        return ArtifactLocation(
+        return ArtifactReference(
             obj['artifact_name'],
-            obj['location_type'],
+            obj['reference_type'],
             sync=obj['sync'],
         )
 
 
-def artifact(name, location_type, sync=True):
-    return ArtifactLocation(name, location_type, sync=sync)
+def aref(name, reference_type, sync=True):
+    return ArtifactReference(name, reference_type, sync=sync)
 
 
 class Spec:
@@ -169,15 +169,15 @@ class Step:
             obj['function'],
             params=obj['params'],
             inputs={
-                k: ArtifactLocation.from_dict(v)
+                k: ArtifactReference.from_dict(v)
                 for k, v in obj['inputs'].items()
             },
             outputs={
-                k: ArtifactLocation.from_dict(v)
+                k: ArtifactReference.from_dict(v)
                 for k, v in obj['outputs'].items()
             },
             temporaries={
-                k: ArtifactLocation.from_dict(v)
+                k: ArtifactReference.from_dict(v)
                 for k, v in obj['temporaries'].items()
             },
             num_workers=obj['num_workers'],
