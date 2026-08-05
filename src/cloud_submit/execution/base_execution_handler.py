@@ -7,7 +7,13 @@ class BaseExecutionHandler:
     def __init__(self):
         pass
 
-    def get_local_artifact_path(self, artifact):
+    def is_local_location_type(self, location_type):
+        return location_type == 'path'
+
+    def get_artifact_location(self, location_type, artifact):
+        if location_type != 'path':
+            raise RuntimeError(
+                f'Cannot handle location type {repr(location_type)}.')
         if artifact.kind != 'file':
             raise RuntimeError(
                 f'Cannot construct local path for artifact {artifact.name} '
@@ -22,12 +28,6 @@ class BaseExecutionHandler:
             '/mnt/artifacts',
             artifact.scope,
             artifact.name,
-        )
-
-    def get_remote_artifact_path(self, artifact):
-        raise RuntimeError(
-            'Cannot construct remote path for artifact '
-            f'{artifact.name}.'
         )
 
     def download_artifact(self, artifact):

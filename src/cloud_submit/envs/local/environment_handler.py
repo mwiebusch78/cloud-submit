@@ -21,6 +21,32 @@ def build_artifacts_mount_option(path, scope):
 
 
 class LocalEnv(EnvironmentHandler):
+    def __init__(
+        self,
+        name,
+        project,
+        user,
+        envvars=None,
+        secrets=None,
+        docker_command='docker',
+        docker_registry=None,
+        docker_namespace='csub',
+        docker_mounts=None,
+    ):
+        super().__init__(
+            name=name,
+            project=project,
+            user=user,
+            envvars=envvars,
+            secrets=secrets,
+            docker_command=docker_command,
+            docker_registry=docker_registry,
+            docker_namespace=docker_namespace,
+        )
+        self._docker_mounts = []
+        if docker_mounts is not None:
+            self._docker_mounts = list(docker_mounts)
+
     def install_execution_handler(self, path):
         sourcedir = os.path.dirname(__file__)
         shutil.copyfile(
@@ -85,6 +111,8 @@ class LocalEnv(EnvironmentHandler):
 
         self.remove_local_artifacts(
             overwrite_artifacts, [[run_id]]*len(overwrite_artifacts))
+        self.remove_remote_artifacts(
+            overwrite_artifacts, [[run_id]]*len(overwrite_artifacts))
 
         for step in pipeline.steps:
             if step.name not in image_refs:
@@ -107,11 +135,18 @@ class LocalEnv(EnvironmentHandler):
                     build_artifacts_mount_option(artifacts_user_path, 'user'),
                     '--mount',
                     build_artifacts_mount_option(artifacts_run_path, 'run'),
+                ]
+                for src, dst in self._docker_mounts:
+                    command.extend([
+                        '--mount',
+                        build_docker_mount_option(src, dst),
+                    ])
+                command.extend([
                     '--env', f'CSUB_TIMESTAMP={timestamp.isoformat()}',
                     '--env', f'CSUB_RUN_ID={run_id}',
                     '--env', f'CSUB_WORKER_INDEX={worker_index}',
                     '--env', f'CSUB_RUN_STEPS={",".join(image_refs.keys())}',
-                ]
+                ])
                 for name, value in self._envvars.items():
                     if value is not None:
                         command.extend(['--env', f'{name}={value}'])

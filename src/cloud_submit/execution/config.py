@@ -63,17 +63,17 @@ class ArtifactLocation:
     def __init__(
         self,
         artifact_name,
-        is_local,
+        location_type,
         sync=True,
     ):
         self.artifact_name = str(artifact_name)
-        self.is_local = bool(is_local)
+        self.location_type = str(location_type)
         self.sync = bool(sync)
 
     def to_dict(self):
         return {
             'artifact_name': self.artifact_name,
-            'is_local': self.is_local,
+            'location_type': self.location_type,
             'sync': self.sync
         }
 
@@ -81,17 +81,13 @@ class ArtifactLocation:
     def from_dict(obj):
         return ArtifactLocation(
             obj['artifact_name'],
-            obj['is_local'],
+            obj['location_type'],
             sync=obj['sync'],
         )
 
 
-def local(name, sync=True):
-    return ArtifactLocation(name, is_local=True, sync=sync)
-
-
-def remote(name, sync=True):
-    return ArtifactLocation(name, is_local=False, sync=sync)
+def artifact(name, location_type, sync=True):
+    return ArtifactLocation(name, location_type, sync=sync)
 
 
 class Spec:

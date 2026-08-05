@@ -29,20 +29,22 @@ class EnvironmentHandler:
         docker_registry=None,
         docker_namespace='csub',
     ):
-        self.name = name
-        self._project = project
-        self._user = user
-        if envvars is None:
-            self._envvars = {}
-        else:
-            self._envvars = dict(envvars)
-        if secrets is None:
-            self._secrets = {}
-        else:
-            self._secrets = dict(secrets)
+        self.name = str(name)
+        self._project = str(project)
+        self._user = str(user)
         self._docker_command = str(docker_command)
         self._docker_registry = docker_registry
-        self._docker_namespace = docker_namespace
+        self._docker_namespace = str(docker_namespace)
+
+        self._envvars = {
+            'CSUB_PROJECT': self._project,
+            'CSUB_USER': self._user,
+        }
+        if envvars is not None:
+            self._envvars.update(envvars)
+        self._secrets = {}
+        if secrets is not None:
+            self._secrets.update(secrets)
 
     def _generate_id(self, timestamp, id):
         if id is not None:

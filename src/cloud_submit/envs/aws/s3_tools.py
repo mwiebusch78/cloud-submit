@@ -43,4 +43,3 @@ def get_remote_artifact_path(
     else:
         raise CloudSubmitError(
             f'Unknown scope {artifact.scope} for artifact {artifact.name}.')
-

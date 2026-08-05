@@ -11,7 +11,6 @@ from cloud_submit import (
     ensure_path,
     CloudSubmitError,
     ExecutionImage,
-    write_json,
     build_docker_mount_option,
     run_command,
     parse_image_ref,
@@ -50,12 +49,16 @@ class LocalAWSEnv(LocalEnv):
             name=name,
             project=project,
             user=user,
-            envvars=envvars,
-            secrets=secrets,
+            envvars=None,
+            secrets=None,
             docker_command=docker_command,
             docker_registry=\
                 f'{aws_account_id}.dkr.ecr.{aws_region}.amazonaws.com',
             docker_namespace=docker_namespace,
+            docker_mounts=[(
+                os.path.join(os.environ['HOME'], '.aws'),
+                '/root/.aws',
+            )],
         )
         self._aws_account_id = str(aws_account_id)
         self._aws_region = str(aws_region)
@@ -69,6 +72,15 @@ class LocalAWSEnv(LocalEnv):
         if self._docker_platforms is not None:
             self._docker_platforms = str(docker_platforms)
 
+        self._envvars['CSUB_AWS_REGION'] = self._aws_region
+        self._envvars['CSUB_AWS_PROFILE'] = self._aws_profile
+        self._envvars['CSUB_AWS_COMMAND'] = self._container_aws_command
+        self._envvars['CSUB_S3_BUCKET'] = self._s3_bucket
+        self._envvars['CSUB_S3_PREFIX'] = self._s3_prefix
+        if envvars is not None:
+            self._envvars.update(envvars)
+        if secrets is not None:
+            self._secrets.update(secrets)
         self._last_docker_login_ts = None
 
     def _docker_login(self):
@@ -115,16 +127,6 @@ class LocalAWSEnv(LocalEnv):
         shutil.copyfile(
             os.path.join(sourcedir, 's3_tools.py'),
             os.path.join(path, 's3_tools.py'),
-        )
-        write_json(
-            {
-                'project': self._project,
-                'user': self._user,
-                'container_aws_command': self._container_aws_command,
-                's3_bucket': self._s3_bucket,
-                's3_prefix': self._s3_prefix,
-            },
-            os.path.join(path, 'execution_config.json'),
         )
 
     def _build_image(self, path, image, build_id, push):

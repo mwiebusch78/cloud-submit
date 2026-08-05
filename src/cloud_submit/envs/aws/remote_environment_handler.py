@@ -45,8 +45,6 @@ class RemoteAWSEnv(LocalAWSEnv):
             aws_profile=aws_profile,
             s3_bucket=s3_bucket,
             s3_prefix=s3_prefix,
-            envvars=envvars,
-            secrets=secrets,
             docker_command=docker_command,
             docker_namespace=docker_namespace,
             docker_platforms=docker_platforms,
@@ -62,6 +60,24 @@ class RemoteAWSEnv(LocalAWSEnv):
         self._stepfunctions_role_arn = str(stepfunctions_role_arn)
         self._log_group_prefix = str(log_group_prefix)
 
+        del self._envvars['CSUB_AWS_PROFILE']
+        del self._envvars['CSUB_AWS_REGION']
+        if envvars is not None:
+            self._envvars.update(envvars)
+        if secrets is not None:
+            self._secrets.update(secrets)
+
+    def install_execution_handler(self, path):
+        sourcedir = os.path.dirname(__file__)
+        shutil.copyfile(
+            os.path.join(sourcedir, 'remote_execution_handler.py'),
+            os.path.join(path, 'execution_handler.py'),
+        )
+        shutil.copyfile(
+            os.path.join(sourcedir, 's3_tools.py'),
+            os.path.join(path, 's3_tools.py'),
+        )
+
     def build_image(self, path, image, build_id):
         return self._build_image(
             path=path,
@@ -73,27 +89,6 @@ class RemoteAWSEnv(LocalAWSEnv):
     def list_remote_image_tags(self, image):
         repo_name = self.get_image_repo(image)
         return self._list_remote_image_tags(repo_name)
-
-#     def install_execution_handler(self, path):
-#         sourcedir = os.path.dirname(__file__)
-#         shutil.copyfile(
-#             os.path.join(sourcedir, 'remote_execution_handler.py'),
-#             os.path.join(path, 'execution_handler.py'),
-#         )
-#         shutil.copyfile(
-#             os.path.join(sourcedir, 's3_tools.py'),
-#             os.path.join(path, 's3_tools.py'),
-#         )
-#         write_json(
-#             {
-#                 'project': self._project,
-#                 'user': self._user,
-#                 'container_aws_command': self._container_aws_command,
-#                 's3_bucket': self._s3_bucket,
-#                 's3_prefix': self._s3_prefix,
-#             },
-#             os.path.join(path, 'execution_config.json'),
-#         )
 
     def _make_workflow_name(self, run_id):
         return '--'.join([self._project, self._user, run_id])

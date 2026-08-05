@@ -10,8 +10,7 @@ from .execution.config import (
     Spec,
     Step,
     Pipeline,
-    local,
-    remote,
+    artifact,
 )
 from .execution.utils import (
     CloudSubmitError,

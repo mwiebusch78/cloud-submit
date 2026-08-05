@@ -7,6 +7,7 @@ import yaml
 
 from .execution.utils import CloudSubmitError
 from .controller import Controller
+from .images import BaseImage
 
 
 def abort(msg):
@@ -317,7 +318,7 @@ def build_images(ctx, env, build_id, build_all, images):
             abort(f'No definition found for image {image}.')
     if build_all:
         images = [
-            image for name, image in config.images.items()
+            name for name, image in config.images.items()
             if isinstance(image, BaseImage)
         ]
     try:

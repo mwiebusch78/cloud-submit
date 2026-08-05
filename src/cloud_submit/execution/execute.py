@@ -35,11 +35,9 @@ if __name__ == '__main__':
         except KeyError:
             raise SystemExit(f'Invalid artifact name {name}')
 
-    def get_artifact_path(eh, loc):
+    def get_artifact_reference(eh, loc):
         artifact = get_artifact(loc.artifact_name)
-        if loc.is_local:
-            return eh.get_local_artifact_path(artifact)
-        return eh.get_remote_artifact_path(artifact)
+        return eh.get_artifact_location(loc.location_type, artifact)
 
     eh = create_execution_handler()
     timestamp = eh.get_submit_timestamp()
@@ -58,7 +56,8 @@ if __name__ == '__main__':
 
         print(f'Executing step: {step.name}')
         for loc in step.inputs.values():
-            if loc.is_local and loc.artifact_name not in synced_artifacts:
+            if eh.is_local_location_type(loc.location_type) \
+                    and loc.artifact_name not in synced_artifacts:
                 artifact = get_artifact(loc.artifact_name)
                 eh.download_artifact(artifact)
                 synced_artifacts.add(loc.artifact_name)
@@ -69,11 +68,11 @@ if __name__ == '__main__':
 
         kwargs = copy.deepcopy(step.params)
         for kw, loc in step.inputs.items():
-            kwargs[kw] = get_artifact_path(eh, loc)
+            kwargs[kw] = get_artifact_reference(eh, loc)
         for kw, loc in step.outputs.items():
-            kwargs[kw] = get_artifact_path(eh, loc)
+            kwargs[kw] = get_artifact_reference(eh, loc)
         for kw, loc in step.temporaries.items():
-            kwargs[kw] = get_artifact_path(eh, loc)
+            kwargs[kw] = get_artifact_reference(eh, loc)
         if step.num_workers is not None:
             if worker_index < 0:
                 raise SystemExit(
@@ -95,11 +94,11 @@ if __name__ == '__main__':
         finally:
             remote_outputs = set(
                 l.artifact_name for l in step.outputs.values()
-                if not l.is_local
+                if not eh.is_local_location_type(l.location_type)
             )
             for loc in step.outputs.values():
                 artifact = get_artifact(loc.artifact_name)
-                if loc.is_local:
+                if eh.is_local_location_type(loc.location_type):
                     synced_artifacts.add(loc.artifact_name)
                     if loc.artifact_name not in remote_outputs:
                         eh.upload_artifact(artifact)

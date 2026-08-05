@@ -389,10 +389,14 @@ class Controller:
             temp_path = 'temp/run'
             ensure_path(temp_path, clear=True)
             env_handler.run_pipeline(
-                pipeline, refs, overwrite_artifacts,
-                timestamp, run_id, temp_path,
+                pipeline=pipeline,
+                image_refs=refs,
+                overwrite_artifacts=overwrite_artifacts,
+                timestamp=timestamp,
+                run_id=run_id,
+                temp_path=temp_path,
             )
-        
+
         return {
             'run_id': run_id,
             'start_timestamp': now,
@@ -409,5 +413,4 @@ class Controller:
             since = dt.datetime.now(tz=dt.UTC) - since
         env_handler = self._config.get_run_env(env)
         env_handler.print_logs(run_id, since, stream=stream)
-        
 
