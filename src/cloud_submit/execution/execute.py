@@ -102,6 +102,7 @@ if __name__ == '__main__':
                     synced_artifacts.add(ref.artifact_name)
                     if ref.artifact_name not in remote_outputs:
                         eh.upload_artifact(artifact)
-            if success and step.name == run_steps[-1]:
+            if success and step.name == run_steps[-1] and \
+                    step.num_workers is None:
                 print('EXECUTION FINISHED SUCCESSFULLY.')
 

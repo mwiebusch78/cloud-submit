@@ -176,6 +176,8 @@ class Controller:
         return result
 
     def remove_image_refs(self, refs, remote=False, env=None):
+        if not refs:
+            return
         env_handler = self._config.get_build_env(env)
         if remote:
             env_handler.remove_remote_image_refs(refs)
@@ -243,6 +245,8 @@ class Controller:
         remote=False,
         env=None,
     ):
+        if not artifact_names:
+            return
         env_handler = self._config.get_run_env(env)
         artifacts = [
             self._config.artifacts[name].copy() for name in artifact_names]

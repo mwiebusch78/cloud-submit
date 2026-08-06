@@ -69,7 +69,7 @@ def build_config(project_root, userconfig):
                     'sigma': PARAMS['sigma'],
                 },
                 outputs={
-                    'train_data_path': cs.local('train_data.parquet'),
+                    'train_data_path': cs.aref('train_data.parquet', 'path'),
                 },
                 pass_submit_timestamp_as='submit_timestamp',
             ),
@@ -78,11 +78,11 @@ def build_config(project_root, userconfig):
                 function='fit:fit_step',
                 image='exec',
                 inputs={
-                    'train_data_path': cs.local('train_data.parquet'),
+                    'train_data_path': cs.aref('train_data.parquet', 'path'),
                 },
                 outputs={
-                    'coefficients_path': cs.local('coefficients.json'),
-                    'predictions_path': cs.local('predictions.parquet'),
+                    'coefficients_path': cs.aref('coefficients.json', 'path'),
+                    'predictions_path': cs.aref('predictions.parquet', 'path'),
                 },
                 num_workers=PARAMS['num_folds'],
                 pass_num_workers_as='num_folds',
