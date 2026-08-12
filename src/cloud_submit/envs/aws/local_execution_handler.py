@@ -37,9 +37,13 @@ class ExecutionHandler(BaseExecutionHandler):
                 'environment.'
             )
         remote_path = self.get_artifact_reference('uri', artifact)
-        remote_path = '/'.join(remote_path.split('/')[:-1])
+        remote_dir = '/'.join(remote_path.split('/')[:-1])
         local_path = self.get_artifact_reference('path', artifact)
-        local_path = os.path.dirname(local_path)
+        local_dir = os.path.dirname(local_path)
+
+        if os.path.exists(local_path):
+            print(f'Using local data for artifact {artifact.name}.')
+            return
 
         print(f'Downloading artifact {artifact.name}.')
         command = [
@@ -50,8 +54,8 @@ class ExecutionHandler(BaseExecutionHandler):
             '--region', self._aws_region,
             '--recursive',
             '--no-progress',
-            remote_path,
-            local_path,
+            remote_dir,
+            local_dir,
             '--exclude', '*',
             '--include', artifact.name,
             '--include', '/'.join([artifact.name, '*'])
