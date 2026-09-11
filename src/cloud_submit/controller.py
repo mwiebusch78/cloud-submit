@@ -61,7 +61,7 @@ class Controller:
         except FileNotFoundError:
             pass
 
-    def _build_image(self, image, build_id, env, rebuild=False):
+    def _build_image(self, image, build_id, env, docker_flags, rebuild=False):
         is_execution_image = isinstance(image, ExecutionImage)
 
         if not rebuild and not is_execution_image:
@@ -96,7 +96,7 @@ class Controller:
         image.setup_builddir(path, parent_ref)
 
         print(f'Building image {image.name}.')
-        ref = env.build_image(path, image, build_id)
+        ref = env.build_image(path, image, build_id, docker_flags)
         if ref is None:
             raise CloudSubmitError(
                 'build_image method of environment handler did not '
@@ -105,10 +105,12 @@ class Controller:
         if not is_execution_image:
             self._save_image_ref(image, ref)
 
-    def build_images(self, images, build_id=None, env=None):
+    def build_images(self, images, build_id=None, env=None, docker_flags=None):
         now = dt.datetime.now(tz=dt.UTC)
         env_handler = self._config.get_build_env(env)
         build_id = env_handler.generate_build_id(now, build_id)
+        if docker_flags is None:
+            docker_flags = []
 
         images = set(images)
         for image in images:
@@ -127,7 +129,7 @@ class Controller:
                     continue
                 rebuild = image_name in images
                 self._build_image(
-                    image, build_id, env_handler, rebuild=rebuild)
+                    image, build_id, env_handler, docker_flags, rebuild=rebuild)
 
     def list_image_refs(self, images=None, ids=None, env=None, remote=False):
         env_handler = self._config.get_build_env(env)

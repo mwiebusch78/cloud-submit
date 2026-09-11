@@ -129,9 +129,9 @@ class LocalAWSEnv(LocalEnv):
             os.path.join(path, 's3_tools.py'),
         )
 
-    def _build_image(self, path, image, build_id, push):
+    def _build_image(self, path, image, build_id, docker_flags, push):
         if not push:
-            ref = super().build_image(path, image, build_id)
+            ref = super().build_image(path, image, build_id, docker_flags)
         else:
             self._docker_login()
             repo = self.get_image_repo(image)
@@ -140,6 +140,7 @@ class LocalAWSEnv(LocalEnv):
                 self._docker_command,
                 'buildx',
                 'build',
+                *docker_flags,
                 *(image.args),
             ]
             if self._docker_platforms is not None:
@@ -148,11 +149,12 @@ class LocalAWSEnv(LocalEnv):
             run_command(command)
         return ref
 
-    def build_image(self, path, image, build_id):
+    def build_image(self, path, image, build_id, docker_flags):
         return self._build_image(
             path=path,
             image=image,
             build_id=build_id,
+            docker_flags=docker_flags,
             push=isinstance(image, BaseImage),
         )
 

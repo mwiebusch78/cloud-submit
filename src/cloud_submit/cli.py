@@ -82,7 +82,7 @@ def get_steps(pipeline, steps_arg):
     tokens = steps_arg.split(',')
     all_steps = [step.name for step in pipeline.steps]
     indices = {step: i for i, step in enumerate(all_steps)}
-    
+
     selected = set()
     for token in tokens:
         token = token.split(':')
@@ -99,7 +99,7 @@ def get_steps(pipeline, steps_arg):
                 end = indices[token[1]]
             except KeyError:
                 raise CloudSubmitError(f'Invalid step name: {token[1]}')
-            for step in all_steps[beg:end+1]:
+            for step in all_steps[begin:end+1]:
                 selected.add(step)
         else:
             raise CloudSubmitError(f'Invalid step range: {":".join(token)}')
@@ -306,9 +306,19 @@ def images():
     is_flag=True,
     help='Ignore IMAGES arguments and build all base images.',
 )
+@click.option(
+    '--no-cache',
+    is_flag=True,
+    help='Do not use docker cache when building images.',
+)
+@click.option(
+    '--pull',
+    is_flag=True,
+    help='Instruct docker to always attempt to pull all referenced images.',
+)
 @click.argument('images', type=str, nargs=-1)
 @click.pass_context
-def build_images(ctx, env, build_id, build_all, images):
+def build_images(ctx, env, build_id, build_all, no_cache, pull, images):
     init(ctx)
     config = ctx.obj['config']
     controller = ctx.obj['controller']
@@ -321,8 +331,18 @@ def build_images(ctx, env, build_id, build_all, images):
             name for name, image in config.images.items()
             if isinstance(image, BaseImage)
         ]
+    docker_flags = []
+    if no_cache:
+        docker_flags.append('--no-cache')
+    if pull:
+        docker_flags.append('--pull')
     try:
-        controller.build_images(images, build_id=build_id, env=env)
+        controller.build_images(
+            images,
+            build_id=build_id,
+            env=env,
+            docker_flags=docker_flags,
+        )
     except CloudSubmitError as e:
         abort(str(e))
 

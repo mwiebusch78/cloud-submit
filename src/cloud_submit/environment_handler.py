@@ -235,13 +235,14 @@ class EnvironmentHandler:
     def remove_remote_image_refs(self, refs):
         raise NotImplementedError
 
-    def build_image(self, path, image, build_id):
+    def build_image(self, path, image, build_id, docker_flags):
         repo = self.get_image_repo(image)
         ref = ':'.join([repo, build_id])
         command = [
             self._docker_command,
             'buildx',
             'build',
+            *docker_flags,
             *(image.args),
             '-t', ref,
             path,
