@@ -78,11 +78,12 @@ class RemoteAWSEnv(LocalAWSEnv):
             os.path.join(path, 's3_tools.py'),
         )
 
-    def build_image(self, path, image, build_id):
+    def build_image(self, path, image, build_id, docker_flags):
         return self._build_image(
             path=path,
             image=image,
             build_id=build_id,
+            docker_flags=docker_flags,
             push=True,
         )
 
@@ -381,8 +382,9 @@ class RemoteAWSEnv(LocalAWSEnv):
             )
 
         print('Clearing output and temporary artifacts.')
-        self.remove_remote_artifacts(
-            overwrite_artifacts, [[run_id]]*len(overwrite_artifacts))
+        for kind, artifacts in overwrite_artifacts.items():
+            self.remove_remote_artifacts(
+                kind, artifacts, [[run_id]]*len(artifacts))
 
         result = run_command(
             [
