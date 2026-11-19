@@ -212,6 +212,22 @@ class Controller:
         with self._config.in_project_root():
             self._clear_image_ref(image)
 
+    def _split_kinds(self, artifacts):
+        kinds = {}
+        keys = []
+        for artifact in artifacts:
+            kind = artifact.kind
+            kinds[kind] = kinds.get(kind, [])
+            kinds[kind].append(artifact)
+            keys.append((kind, len(kinds[kind])-1))
+        return kinds, keys
+
+    def _merge_kinds(self, kinds, keys):
+        result = []
+        for kind, pos in keys:
+            result.append(kinds[kind][pos])
+        return result
+
     def list_artifacts(
         self,
         artifact_names=None,
@@ -228,15 +244,19 @@ class Controller:
             except KeyError:
                 raise CloudSubmitError(f'Unknown artifact name: {name}.')
             artifacts.append(artifact.copy())
+        kinds, keys = self._split_kinds(artifacts)
 
         env_handler = self._config.get_run_env(env)
         with self._config.in_project_root():
-            if remote:
-                runs = env_handler.list_remote_artifacts(
-                    artifacts, run_ids=run_ids)
-            else:
-                runs = env_handler.list_local_artifacts(
-                    artifacts, run_ids=run_ids)
+            runs = {}
+            for kind, artifact_list in kinds.items():
+                if remote:
+                    runs[kind] = env_handler.list_remote_artifacts(
+                        kind, artifact_list, run_ids=run_ids)
+                else:
+                    runs[kind] = env_handler.list_local_artifacts(
+                        kind, artifact_list, run_ids=run_ids)
+        runs = self._merge_kinds(runs, keys)
 
         return [a.name for a in artifacts], runs
 
@@ -252,11 +272,15 @@ class Controller:
         env_handler = self._config.get_run_env(env)
         artifacts = [
             self._config.artifacts[name].copy() for name in artifact_names]
+        kinds, keys = self._split_kinds(artifacts)
         with self._config.in_project_root():
-            if remote:
-                env_handler.remove_remote_artifacts(artifacts, run_ids)
-            else:
-                env_handler.remove_local_artifacts(artifacts, run_ids)
+            for kind, artifact_list in kinds.items():
+                if remote:
+                    env_handler.remove_remote_artifacts(
+                        kind, artifact_list, run_ids)
+                else:
+                    env_handler.remove_local_artifacts(
+                        kind, artifact_list, run_ids)
 
     def pull_artifacts(
         self,
@@ -267,9 +291,11 @@ class Controller:
         env_handler = self._config.get_run_env(env)
         artifacts = [
             self._config.artifacts[name].copy() for name in artifact_names]
+        kinds, keys = self._split_kinds(artifacts)
         with self._config.in_project_root():
-            env_handler.remove_local_artifacts(artifacts, run_ids)
-            env_handler.pull_artifacts(artifacts, run_ids)
+            for kind, artifact_list in kinds.items():
+                env_handler.remove_local_artifacts(kind, artifact_list, run_ids)
+                env_handler.pull_artifacts(kind, artifact_list, run_ids)
 
     def push_artifacts(
         self,
@@ -280,9 +306,12 @@ class Controller:
         env_handler = self._config.get_run_env(env)
         artifacts = [
             self._config.artifacts[name].copy() for name in artifact_names]
+        kinds, keys = self._split_kinds(artifacts)
         with self._config.in_project_root():
-            env_handler.remove_remote_artifacts(artifacts, run_ids)
-            env_handler.push_artifacts(artifacts, run_ids)
+            for kind, artifact_list in kinds.items():
+                env_handler.remove_remote_artifacts(
+                    kind, artifact_list, run_ids)
+                env_handler.push_artifacts(kind, artifact_list, run_ids)
 
     def copy_artifacts(
         self,
@@ -300,17 +329,19 @@ class Controller:
             self._config.artifacts[name].copy() for name in artifact_names
             if self._config.artifacts[name].scope == 'run'
         ]
+        kinds, keys = self._split_kinds(artifacts)
         with self._config.in_project_root():
-            if remote:
-                env_handler.remove_remote_artifacts(
-                    artifacts, [[to_run_id]]*len(artifacts))
-                env_handler.copy_remote_artifacts(
-                    artifacts, from_run_id, to_run_id)
-            else:
-                env_handler.remove_local_artifacts(
-                    artifacts, [[to_run_id]]*len(artifacts))
-                env_handler.copy_local_artifacts(
-                    artifacts, from_run_id, to_run_id)
+            for kind, artifact_list in kinds.items():
+                if remote:
+                    env_handler.remove_remote_artifacts(
+                        kind, artifact_list, [[to_run_id]]*len(artifact_list))
+                    env_handler.copy_remote_artifacts(
+                        kind, artifact_list, from_run_id, to_run_id)
+                else:
+                    env_handler.remove_local_artifacts(
+                        kind, artifact_list, [[to_run_id]]*len(artifact_list))
+                    env_handler.copy_local_artifacts(
+                        kind, artifact_list, from_run_id, to_run_id)
 
     def move_artifacts(
         self,
@@ -328,17 +359,19 @@ class Controller:
             self._config.artifacts[name].copy() for name in artifact_names
             if self._config.artifacts[name].scope == 'run'
         ]
+        kinds, keys = self._split_kinds(artifacts)
         with self._config.in_project_root():
-            if remote:
-                env_handler.remove_remote_artifacts(
-                    artifacts, [[to_run_id]]*len(artifacts))
-                env_handler.move_remote_artifacts(
-                    artifacts, from_run_id, to_run_id)
-            else:
-                env_handler.remove_local_artifacts(
-                    artifacts, [[to_run_id]]*len(artifacts))
-                env_handler.move_local_artifacts(
-                    artifacts, from_run_id, to_run_id)
+            for kind, artifact_list in kinds.items():
+                if remote:
+                    env_handler.remove_remote_artifacts(
+                        kind, artifact_list, [[to_run_id]]*len(artifact_list))
+                    env_handler.move_remote_artifacts(
+                        kind, artifact_list, from_run_id, to_run_id)
+                else:
+                    env_handler.remove_local_artifacts(
+                        kind, artifact_list, [[to_run_id]]*len(artifact_list))
+                    env_handler.move_local_artifacts(
+                        kind, artifact_list, from_run_id, to_run_id)
 
     def run_pipeline(
         self,
@@ -386,11 +419,14 @@ class Controller:
                 refs[step.name] = ':'.join([repo, run_id])
 
                 for loc in step.outputs.values():
-                    overwrite_artifacts.append(
-                        self._config.artifacts[loc.artifact_name].copy())
+                    artifact = self._config.artifacts[loc.artifact_name].copy()
+                    if artifact.scope == 'run':
+                        overwrite_artifacts.append(artifact)
                 for loc in step.temporaries.values():
-                    overwrite_artifacts.append(
-                        self._config.artifacts[loc.artifact_name].copy())
+                    artifact = self._config.artifacts[loc.artifact_name].copy()
+                    overwrite_artifacts.append(artifact)
+
+            overwrite_artifacts, _ = self._split_kinds(overwrite_artifacts)
 
             temp_path = 'temp/run'
             ensure_path(temp_path, clear=True)

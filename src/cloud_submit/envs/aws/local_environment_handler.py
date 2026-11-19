@@ -244,7 +244,13 @@ class LocalAWSEnv(LocalEnv):
         lines = lines.split('\n')
         return [l.split()[-1] for l in lines]
 
-    def list_remote_artifacts(self, artifacts, run_ids=None):
+    def list_remote_artifacts(self, kind, artifacts, run_ids=None):
+        if kind != 'file':
+            raise CloudSubmitError(
+                'Cannot list run IDs for remote artifacts of kind '
+                f'{repr(kind)}. '
+            )
+
         if run_ids is not None:
             run_ids = set(run_ids)
 
@@ -252,8 +258,6 @@ class LocalAWSEnv(LocalEnv):
         user_artifacts = set()
         run_artifacts = set()
         for a in artifacts:
-            if a.kind != 'file':
-                continue
             if a.scope == 'project':
                 project_artifacts.add(a.name)
             elif a.scope == 'user':
@@ -303,7 +307,12 @@ class LocalAWSEnv(LocalEnv):
         results = [sorted(results[a.name]) for a in artifacts]
         return results
 
-    def remove_remote_artifacts(self, artifacts, run_ids):
+    def remove_remote_artifacts(self, kind, artifacts, run_ids):
+        if kind != 'file':
+            raise CloudSubmitError(
+                f'Cannot remove remote artifacts of kind {repr(kind)}.'
+            )
+
         path = '/'.join(
             ['s3:/', self._s3_bucket, self._s3_prefix, self._project])
         command = [
@@ -354,7 +363,12 @@ class LocalAWSEnv(LocalEnv):
 
         run_command(command)
 
-    def push_artifacts(self, artifacts, run_ids):
+    def push_artifacts(self, kind, artifacts, run_ids):
+        if kind != 'file':
+            raise CloudSubmitError(
+                f'Cannot push artifacts of kind {repr(kind)}.'
+            )
+
         remote_path = '/'.join(
             ['s3:/', self._s3_bucket, self._s3_prefix, self._project])
         local_path = 'artifacts'
@@ -404,7 +418,12 @@ class LocalAWSEnv(LocalEnv):
 
         run_command(command)
 
-    def pull_artifacts(self, artifacts, run_ids):
+    def pull_artifacts(self, kind, artifacts, run_ids):
+        if kind != 'file':
+            raise CloudSubmitError(
+                f'Cannot pull artifacts of kind {repr(kind)}.'
+            )
+
         remote_path = '/'.join(
             ['s3:/', self._s3_bucket, self._s3_prefix, self._project])
         local_path = 'artifacts'
@@ -454,7 +473,12 @@ class LocalAWSEnv(LocalEnv):
 
         run_command(command)
 
-    def copy_remote_artifacts(self, artifacts, from_run_id, to_run_id):
+    def copy_remote_artifacts(self, kind, artifacts, from_run_id, to_run_id):
+        if kind != 'file':
+            raise CloudSubmitError(
+                f'Cannot copy remote artifacts of kind {repr(kind)}.'
+            )
+
         base_path = '/'.join([
             's3:/', self._s3_bucket, self._s3_prefix, self._project,
             'users', self._user, 'runs',
@@ -480,7 +504,12 @@ class LocalAWSEnv(LocalEnv):
             ])
         run_command(command)
 
-    def move_remote_artifacts(self, artifacts, from_run_id, to_run_id):
+    def move_remote_artifacts(self, kind, artifacts, from_run_id, to_run_id):
+        if kind != 'file':
+            raise CloudSubmitError(
+                f'Cannot move remote artifacts of kind {repr(kind)}.'
+            )
+
         base_path = '/'.join([
             's3:/', self._s3_bucket, self._s3_prefix, self._project,
             'users', self._user, 'runs',

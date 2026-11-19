@@ -79,16 +79,16 @@ class LocalEnv(EnvironmentHandler):
     def get_remote_artifact_ref(self, artifact, run_id=None):
         return ''
 
-    def list_remote_artifacts(self, artifacts, run_ids=None):
+    def list_remote_artifacts(self, kind, artifacts, run_ids=None):
         return [[] for a in artifacts]
 
-    def remove_remote_artifacts(self, artifacts, run_ids):
+    def remove_remote_artifacts(self, kind, artifacts, run_ids):
         pass
 
-    def copy_remote_artifacts(self, artifacts, from_run_id, to_run_id):
+    def copy_remote_artifacts(self, kind, artifacts, from_run_id, to_run_id):
         pass
 
-    def move_remote_artifacts(self, artifacts, from_run_id, to_run_id):
+    def move_remote_artifacts(self, kind, artifacts, from_run_id, to_run_id):
         pass
 
     def run_pipeline(
@@ -109,10 +109,11 @@ class LocalEnv(EnvironmentHandler):
         ensure_path(artifacts_user_path)
         ensure_path(artifacts_run_path)
 
-        self.remove_local_artifacts(
-            overwrite_artifacts, [[run_id]]*len(overwrite_artifacts))
-        self.remove_remote_artifacts(
-            overwrite_artifacts, [[run_id]]*len(overwrite_artifacts))
+        for kind, artifacts in overwrite_artifacts.items():
+            self.remove_local_artifacts(
+                kind, artifacts, [[run_id]]*len(artifacts))
+            self.remove_remote_artifacts(
+                kind, artifacts, [[run_id]]*len(artifacts))
 
         for step in pipeline.steps:
             if step.name not in image_refs:

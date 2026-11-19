@@ -253,9 +253,8 @@ class EnvironmentHandler:
     def get_local_artifact_ref(self, artifact, run_id=None):
         if artifact.kind != 'file':
             raise CloudSubmitError(
-                f'Cannot get path for local artifact {artifact.name}. '
-                "Only artifacts of kind 'file' are supported and this one "
-                f'is of kind {repr(artifact.kind)}.'
+                f'Cannot get path for local artifact {artifact.name} '
+                f'of kind {repr(artifact.kind)}.'
             )
         if artifact.scope == 'project':
             return os.path.join('artifacts', 'shared', artifact.name)
@@ -277,18 +276,18 @@ class EnvironmentHandler:
     def get_remote_artifact_ref(self, artifact, run_id=None):
         raise NotImplementedError
 
-    def list_local_artifacts(self, artifacts, run_ids=None):
+    def list_local_artifacts(self, kind, artifacts, run_ids=None):
+        if kind != 'file':
+            raise CloudSubmitError(
+                'Cannot list run IDs for local artifacts of kind '
+                f'{repr(kind)}. '
+            )
+
         if run_ids is not None:
             run_ids = set(run_ids)
 
         results = []
         for artifact in artifacts:
-            if artifact.kind != 'file':
-                raise CloudSubmitError(
-                    f'Cannot list run IDs for local artifact {artifact.name}. '
-                    "Only artifacts of kind 'file' are supported and this one "
-                    f'is of kind {repr(artifact.kind)}.'
-                )
             if artifact.scope == 'run':
                 pattern = os.path.join(
                     'artifacts', 'users', self._user,
@@ -317,27 +316,33 @@ class EnvironmentHandler:
             results.append(ids)
         return results
 
-    def list_remote_artifacts(self, artifacts, run_ids=None):
+    def list_remote_artifacts(self, kind, artifacts, run_ids=None):
         raise NotImplementedError
 
-    def push_artifacts(self, artifacts, run_ids):
+    def push_artifacts(self, kind, artifacts, run_ids):
         raise NotImplementedError
 
-    def pull_artifacts(self, artifacts, run_ids):
+    def pull_artifacts(self, kind, artifacts, run_ids):
         raise NotImplementedError
 
-    def remove_local_artifacts(self, artifacts, run_ids):
+    def remove_local_artifacts(self, kind, artifacts, run_ids):
+        if kind != 'file':
+            raise CloudSubmitError(
+                f'Cannot remove local artifacts of kind {repr(kind)}. '
+            )
         for artifact, runs in zip(artifacts, run_ids):
-            if artifact.kind != 'file':
-                continue
             for run_id in runs:
                 path = self.get_local_artifact_ref(artifact, run_id)
                 clear_path(path)
 
-    def remove_remote_artifacts(self, artifacts, run_ids):
+    def remove_remote_artifacts(self, kind, artifacts, run_ids):
         raise NotImplementedError
 
-    def copy_local_artifacts(self, artifacts, from_run_id, to_run_id):
+    def copy_local_artifacts(self, kind, artifacts, from_run_id, to_run_id):
+        if kind != 'file':
+            raise CloudSubmitError(
+                f'Cannot copy local artifacts of kind {repr(kind)}. '
+            )
         for artifact in artifacts:
             src_path = self.get_local_artifact_ref(artifact, from_run_id)
             dst_path = self.get_local_artifact_ref(artifact, to_run_id)
@@ -351,10 +356,14 @@ class EnvironmentHandler:
                     else:
                         raise
 
-    def copy_remote_artifacts(self, artifacts, from_run_id, to_run_id):
+    def copy_remote_artifacts(self, kind, artifacts, from_run_id, to_run_id):
         raise NotImplementedError
 
-    def move_local_artifacts(self, artifacts, from_run_id, to_run_id):
+    def move_local_artifacts(self, kind, artifacts, from_run_id, to_run_id):
+        if kind != 'file':
+            raise CloudSubmitError(
+                f'Cannot move local artifacts of kind {repr(kind)}. '
+            )
         for artifact in artifacts:
             src_path = self.get_local_artifact_ref(artifact, from_run_id)
             dst_path = self.get_local_artifact_ref(artifact, to_run_id)
