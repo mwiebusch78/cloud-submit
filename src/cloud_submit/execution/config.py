@@ -194,10 +194,12 @@ class Pipeline:
         name,
         steps,
         default_submit_timestamp=None,
+        schedule=None,
     ):
         self.name = name
         self.steps = list(steps)
         self.default_submit_timestamp = to_utc(default_submit_timestamp)
+        self.schedule = schedule
 
         step_names = set()
         for step in self.steps:
@@ -212,7 +214,8 @@ class Pipeline:
         return {
             'name': self.name,
             'steps': [s.to_dict() for s in self.steps],
-            'default_submit_timestamp': self.default_submit_timestamp
+            'default_submit_timestamp': self.default_submit_timestamp,
+            'schedule': self.schedule,
         }
 
     @staticmethod
@@ -220,7 +223,8 @@ class Pipeline:
         return Pipeline(
             name=obj['name'],
             steps=[Step.from_dict(s) for s in obj['steps']],
-            default_submit_timestamp=obj['default_submit_timestamp']
+            default_submit_timestamp=obj['default_submit_timestamp'],
+            schedule=obj['schedule'],
         )
 
 

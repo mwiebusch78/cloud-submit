@@ -35,6 +35,8 @@ class RemoteAWSEnv(LocalAWSEnv):
         aws_command='aws',
         container_aws_command='aws',
         log_group_prefix='/ecs/csub/',
+        scheduler_timezone=None,
+        scheduler_role_arn=None,
     ):
         super().__init__(
             name=name,
@@ -59,6 +61,8 @@ class RemoteAWSEnv(LocalAWSEnv):
         self._ecs_task_role_arn = str(ecs_task_role_arn)
         self._stepfunctions_role_arn = str(stepfunctions_role_arn)
         self._log_group_prefix = str(log_group_prefix)
+        self._scheduler_timezone = scheduler_timezone
+        self._scheduler_role_arn = scheduler_role_arn
 
         del self._envvars['CSUB_AWS_PROFILE']
         del self._envvars['CSUB_AWS_REGION']
@@ -91,14 +95,29 @@ class RemoteAWSEnv(LocalAWSEnv):
         repo_name = self.get_image_repo(image)
         return self._list_remote_image_tags(repo_name)
 
-    def _make_workflow_name(self, run_id):
-        return '--'.join([self._project, self._user, run_id])
+    def _make_workflow_name(self, pipeline_name, run_id):
+        if run_id is None:
+            parts = ['deployed', self._project, self._user, pipeline_name]
+        else:
+            parts = ['adhoc', self._project, self._user, run_id]
+        return '--'.join(parts)
+
+    def _make_schedule_name(self, pipeline_name):
+        parts = [self._project, self._user, pipeline_name]
+        return '--'.join(parts)
 
     def _make_workflow_arn(self, workflow_name):
         return ':'.join([
             'arn', 'aws', 'states',
             self._aws_region, self._aws_account_id,
             'stateMachine', workflow_name,
+        ])
+
+    def _make_schedule_arn(self, schedule_name):
+        return ':'.join([
+            'arn', 'aws', 'scheduler',
+            self._aws_region, self._aws_account_id,
+            f'schedule/default/{schedule_name}',
         ])
 
     def _check_workflow_exists(self, workflow_name):
@@ -118,6 +137,24 @@ class RemoteAWSEnv(LocalAWSEnv):
         result = json.loads(result.stdout)
         arns = set(s['stateMachineArn'] for s in result['stateMachines'])
         return workflow_arn in arns
+
+    def _check_schedule_exists(self, schedule_name):
+        schedule_arn = self._make_schedule_arn(schedule_name)
+        result = run_command(
+            [
+                self._aws_command,
+                'scheduler',
+                'list-schedules',
+                '--profile', self._aws_profile,
+                '--region', self._aws_region,
+            ],
+            stdout=subprocess.PIPE,
+            text=True,
+            hide_stderr=True,
+        )
+        result = json.loads(result.stdout)
+        arns = set(s['Arn'] for s in result['Schedules'])
+        return schedule_arn in arns
 
     def _group_steps(self, pipeline, image_refs):
         groups = []
@@ -157,11 +194,20 @@ class RemoteAWSEnv(LocalAWSEnv):
             for name, value in self._secrets.items()
             if value is not None
         ]
+        if timestamp is None or run_id is None:
+            timestamp = "{% $states.context.Execution.StartTime %}"
+            run_id = (
+                "{% $fromMillis($toMillis($states.context.Execution.StartTime), "
+                "'[Y0001][M01][D01]-[H01][m01][s01]') %}"
+            )
+        else:
+            timestamp = timestamp.isoformat()
+
         return {
             f"RegisterTask{task_index}": {
                 "Type": "Task",
                 "Resource": "arn:aws:states:::aws-sdk:ecs:registerTaskDefinition",
-                "Parameters": {
+                "Arguments": {
                     "Family": f"{workflow_name}--{task_index}",
                     "RequiresCompatibilities": ["EC2"],
                     "NetworkMode": "host",
@@ -184,7 +230,7 @@ class RemoteAWSEnv(LocalAWSEnv):
                             "Environment": [
                                 {
                                     "Name": "CSUB_TIMESTAMP",
-                                    "Value": timestamp.isoformat(),
+                                    "Value": timestamp,
                                 },
                                 {
                                     "Name": "CSUB_RUN_ID",
@@ -220,15 +266,16 @@ class RemoteAWSEnv(LocalAWSEnv):
                         }
                     ]
                 },
-                "ResultPath": "$.RegisteredTask",
+                "Output": "{% {'RegisteredTask': $states.result} %}",
                 "Next": f"RunTask{task_index}"
             },
             f"RunTask{task_index}": {
                 "Type": "Task",
                 "Resource": "arn:aws:states:::ecs:runTask.sync",
-                "Parameters": {
+                "Arguments": {
                     "Cluster": self._ecs_cluster_arn,
-                    "TaskDefinition.$": "$.RegisteredTask.TaskDefinition.TaskDefinitionArn",
+                    "TaskDefinition":
+                        "{% $states.input.RegisteredTask.TaskDefinition.TaskDefinitionArn %}",
                     "CapacityProviderStrategy": [
                         {
                             "CapacityProvider": self._ecs_capacity_provider,
@@ -252,11 +299,11 @@ class RemoteAWSEnv(LocalAWSEnv):
                         }
                     ]
                 },
-                "ResultPath": "$.ExecutionResult",
+                "Output": "{% $merge([$states.input, {'ExecutionResult': $states.result}]) %}",
                 "Catch": [
                     {
                         "ErrorEquals": ["States.ALL"],
-                        "ResultPath": "$.ExecutionError",
+                        "Output": "{% $merge([$states.input, {'ExecutionError': $states.errorOutput}]) %}",
                         "Next": f"DeregisterTask{task_index}OnFailure"
                     }
                 ],
@@ -265,8 +312,8 @@ class RemoteAWSEnv(LocalAWSEnv):
             f"DeregisterTask{task_index}OnSuccess": {
                 "Type": "Task",
                 "Resource": "arn:aws:states:::aws-sdk:ecs:deregisterTaskDefinition",
-                "Parameters": {
-                    "TaskDefinition.$": "$.RegisteredTask.TaskDefinition.TaskDefinitionArn"
+                "Arguments": {
+                    "TaskDefinition": "{% $states.input.RegisteredTask.TaskDefinition.TaskDefinitionArn %}"
                 },
                 ("End" if is_last else "Next"): (
                     True if is_last else f"RegisterTask{task_index + 1}"),
@@ -274,8 +321,8 @@ class RemoteAWSEnv(LocalAWSEnv):
             f"DeregisterTask{task_index}OnFailure": {
                 "Type": "Task",
                 "Resource": "arn:aws:states:::aws-sdk:ecs:deregisterTaskDefinition",
-                "Parameters": {
-                    "TaskDefinition.$": "$.RegisteredTask.TaskDefinition.TaskDefinitionArn"
+                "Arguments": {
+                    "TaskDefinition": "{% $states.input.RegisteredTask.TaskDefinition.TaskDefinitionArn %}"
                 },
                 "Next": "WorkflowFailed"
             },
@@ -325,6 +372,7 @@ class RemoteAWSEnv(LocalAWSEnv):
         }
 
         return {
+            "QueryLanguage": "JSONata",
             "StartAt": "RegisterTask0",
             "States": states,
         }
@@ -338,7 +386,7 @@ class RemoteAWSEnv(LocalAWSEnv):
         run_id,
         temp_path
     ):
-        workflow_name = self._make_workflow_name(run_id)
+        workflow_name = self._make_workflow_name(None, run_id)
         workflow = self._build_workflow(
             pipeline=pipeline,
             image_refs=image_refs,
@@ -349,7 +397,7 @@ class RemoteAWSEnv(LocalAWSEnv):
 
         workflow_path = os.path.join(temp_path, f'{workflow_name}.json')
         with open(workflow_path, 'w') as stream:
-            json.dump(workflow, stream)
+            json.dump(workflow, stream, indent=4)
 
         workflow_arn = self._make_workflow_arn(workflow_name)
         if self._check_workflow_exists(workflow_name):
@@ -404,7 +452,7 @@ class RemoteAWSEnv(LocalAWSEnv):
 
     def print_logs(self, run_id, start_timestamp, stream=False):
         print('\nStreaming logs...')
-        workflow_name = self._make_workflow_name(run_id)
+        workflow_name = self._make_workflow_name(None, run_id)
         command = [
             self._aws_command,
             'logs',
@@ -418,3 +466,102 @@ class RemoteAWSEnv(LocalAWSEnv):
             command.append('--follow')
         command.append(self._log_group_prefix + workflow_name)
         run_command(command)
+
+    def deploy_pipeline(
+        self,
+        pipeline,
+        image_refs,
+        temp_path,
+        schedule=True,
+    ):
+        workflow_name = self._make_workflow_name(pipeline.name, None)
+        workflow = self._build_workflow(
+            pipeline=pipeline,
+            image_refs=image_refs,
+            workflow_name=workflow_name,
+            timestamp=None,
+            run_id=None,
+        )
+
+        workflow_path = os.path.join(temp_path, f'{workflow_name}.json')
+        with open(workflow_path, 'w') as stream:
+            json.dump(workflow, stream, indent=4)
+
+        workflow_arn = self._make_workflow_arn(workflow_name)
+        if self._check_workflow_exists(workflow_name):
+            run_command(
+                [
+                    self._aws_command,
+                    'stepfunctions',
+                    'update-state-machine',
+                    '--profile', self._aws_profile,
+                    '--region', self._aws_region,
+                    '--state-machine-arn', workflow_arn,
+                    '--role-arn', self._stepfunctions_role_arn,
+                    '--definition', f'file://{workflow_path}',
+                ],
+                stdout=subprocess.DEVNULL,
+            )
+        else:
+            run_command(
+                [
+                    self._aws_command,
+                    'stepfunctions',
+                    'create-state-machine',
+                    '--profile', self._aws_profile,
+                    '--region', self._aws_region,
+                    '--name', workflow_name,
+                    '--role-arn', self._stepfunctions_role_arn,
+                    '--definition', f'file://{workflow_path}',
+                ],
+                stdout=subprocess.DEVNULL,
+            )
+        print(f'Created step function {workflow_arn}.')
+
+        if schedule and pipeline.schedule is not None:
+            if self._scheduler_timezone is None:
+                raise CloudSubmitError(
+                    'You must specify the schedule timezone '
+                    'to use automatic scheduling.'
+                )
+            if self._scheduler_role_arn is None:
+                raise CloudSubmitError(
+                    'You must specify the scheduler role ARN '
+                    'to use automatic scheduling.'
+                )
+            schedule_name = self._make_schedule_name(pipeline.name)
+            target = json.dumps({
+                'Arn': workflow_arn,
+                'RoleArn': self._scheduler_role_arn,
+            })
+            options = [
+                '--profile', self._aws_profile,
+                '--region', self._aws_region,
+                '--name', schedule_name,
+                '--schedule-expression', f'cron({pipeline.schedule})',
+                '--schedule-expression-timezone', self._scheduler_timezone,
+                '--flexible-time-window', '{"Mode": "OFF"}',
+                '--target', target,
+            ]
+            if self._check_schedule_exists(schedule_name):
+                run_command(
+                    [
+                        self._aws_command,
+                        'scheduler',
+                        'update-schedule',
+                        *options
+                    ],
+                    stdout=subprocess.DEVNULL,
+                )
+            else:
+                run_command(
+                    [
+                        self._aws_command,
+                        'scheduler',
+                        'create-schedule',
+                        *options,
+                    ],
+                    stdout=subprocess.DEVNULL,
+                )
+            print(f'Created schedule {schedule_name}.')
+

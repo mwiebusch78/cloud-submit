@@ -178,8 +178,7 @@ def list_pipelines(ctx, steps, pipelines):
 Run the pipeline PIPELINE. Specify STEPS to select a subset of steps to run.
 STEPS should be a comma-separated list of step names or step ranges of the form
 start:end where start and end are step names. If steps is not specified all
-steps are executed. By default, all *execution* images needed for the run are
-re-built (but you can use --no-rebuild to prevent that).
+steps are executed.
 """
 )
 @click.option(
@@ -269,6 +268,56 @@ def run_pipeline(
                 env=env,
                 stream=True,
             )
+    except CloudSubmitError as e:
+        abort(str(e))
+
+
+@pipelines.command(
+    name='deploy',
+    help="""Deploy a pipeline.
+
+Deploy the pipeline PIPELINE.
+"""
+)
+@click.option(
+    '--env', '-e',
+    type=str,
+    default=None,
+    help='The name of the environment to use for the deployment.',
+)
+@click.option(
+    '--build-env',
+    type=str,
+    default=None,
+    help='The name of the environment to use for building images.',
+)
+@click.argument(
+    'pipeline',
+    type=str,
+    required=True,
+)
+@click.pass_context
+def deploy_pipeline(
+    ctx,
+    env,
+    build_env,
+    pipeline,
+):
+    init(ctx)
+    config = ctx.obj['config']
+    controller = ctx.obj['controller']
+
+    try:
+        pipeline = config.pipelines[pipeline]
+    except KeyError:
+        abort(f'Pipeline not found: {pipeline}')
+
+    try:
+        deployment_data = controller.deploy_pipeline(
+            pipeline.name,
+            env=env,
+            build_env=build_env,
+        )
     except CloudSubmitError as e:
         abort(str(e))
 

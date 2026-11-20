@@ -387,3 +387,11 @@ class EnvironmentHandler:
 
     def print_logs(self, run_id, start_timestamp, stream=False):
         raise NotImplementedError
+
+    def deploy_pipeline(
+        self,
+        pipeline,
+        image_refs,
+        temp_path
+    ):
+        raise NotImplementedError

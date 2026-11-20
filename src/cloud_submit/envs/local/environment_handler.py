@@ -170,3 +170,12 @@ class LocalEnv(EnvironmentHandler):
     def print_logs(self, run_id, start_timestamp, stream=False):
         raise CloudSubmitError(
             'Log retrieval is not supported by this environment.')
+
+    def deploy_pipeline(
+        self,
+        pipeline,
+        image_refs,
+        temp_path
+    ):
+        raise CloudSubmitError(
+            'Deployment is not supported by this environment.')

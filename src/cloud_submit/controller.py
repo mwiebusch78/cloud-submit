@@ -444,6 +444,45 @@ class Controller:
             'start_timestamp': now,
         }
 
+    def deploy_pipeline(
+        self,
+        pipeline,
+        env=None,
+        build_env=None,
+    ):
+        try:
+            pipeline = self._config.pipelines[pipeline]
+        except KeyError:
+            raise CloudSubmitError(f'Pipeline not found: {pipeline}')
+
+        if build_env is None:
+            build_env = env
+
+        env_handler = self._config.get_run_env(env)
+        now = dt.datetime.now(tz=dt.UTC)
+        build_id = env_handler.generate_build_id(now, None)
+
+        with self._config.in_project_root():
+            images = [step.image for step in pipeline.steps]
+            self.build_images(images, build_id=build_id, env=build_env)
+            refs = {}
+            for step in pipeline.steps:
+                image = self._config.images.get(step.image)
+                if image is None:
+                    raise CloudSubmitError(
+                        f'Cannot find declaration for image {step.image}.')
+                repo = env_handler.get_image_repo(image)
+                refs[step.name] = ':'.join([repo, build_id])
+
+            temp_path = 'temp/deploy'
+            ensure_path(temp_path, clear=True)
+            env_handler.deploy_pipeline(
+                pipeline=pipeline,
+                image_refs=refs,
+                temp_path=temp_path,
+            )
+
+
     def print_logs(
         self,
         run_id,
