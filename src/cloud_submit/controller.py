@@ -482,10 +482,10 @@ class Controller:
                 temp_path=temp_path,
             )
 
-
     def print_logs(
         self,
-        run_id,
+        run_id=None,
+        pipeline=None,
         since=dt.timedelta(minutes=1),
         env=None,
         stream=False
@@ -493,5 +493,16 @@ class Controller:
         if isinstance(since, dt.timedelta):
             since = dt.datetime.now(tz=dt.UTC) - since
         env_handler = self._config.get_run_env(env)
-        env_handler.print_logs(run_id, since, stream=stream)
+        env_handler.print_logs(run_id, pipeline, since, stream=stream)
+
+    def list_runs(
+        self,
+        pipeline=None,
+        since=dt.timedelta(minutes=1),
+        env=None,
+    ):
+        if isinstance(since, dt.timedelta):
+            since = dt.datetime.now(tz=dt.UTC) - since
+        env_handler = self._config.get_run_env(env)
+        return env_handler.list_runs(pipeline, since)
 

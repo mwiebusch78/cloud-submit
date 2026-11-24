@@ -26,6 +26,8 @@ class RemoteAWSEnv(LocalAWSEnv):
         ecs_execution_role_arn,
         ecs_task_role_arn,
         stepfunctions_role_arn,
+        adhoc_log_group,
+        deployed_log_group,
         envvars=None,
         secrets=None,
         docker_command='docker',
@@ -34,7 +36,6 @@ class RemoteAWSEnv(LocalAWSEnv):
         docker_login_refresh_hours=6,
         aws_command='aws',
         container_aws_command='aws',
-        log_group_prefix='/ecs/csub/',
         scheduler_timezone=None,
         scheduler_role_arn=None,
     ):
@@ -60,9 +61,16 @@ class RemoteAWSEnv(LocalAWSEnv):
         self._ecs_execution_role_arn = str(ecs_execution_role_arn)
         self._ecs_task_role_arn = str(ecs_task_role_arn)
         self._stepfunctions_role_arn = str(stepfunctions_role_arn)
-        self._log_group_prefix = str(log_group_prefix)
-        self._scheduler_timezone = scheduler_timezone
-        self._scheduler_role_arn = scheduler_role_arn
+
+        self._scheduler_timezone = None
+        if scheduler_timezone is not None:
+            self._scheduler_timezone = str(scheduler_timezone)
+        self._scheduler_role_arn = None
+        if scheduler_role_arn is not None:
+            self._scheduler_role_arn = str(scheduler_role_arn)
+
+        self._adhoc_log_group = str(adhoc_log_group)
+        self._deployed_log_group = str(deployed_log_group)
 
         del self._envvars['CSUB_AWS_PROFILE']
         del self._envvars['CSUB_AWS_REGION']
@@ -104,6 +112,17 @@ class RemoteAWSEnv(LocalAWSEnv):
 
     def _make_schedule_name(self, pipeline_name):
         parts = [self._project, self._user, pipeline_name]
+        return '--'.join(parts)
+
+    def _make_log_prefix(self, run_id, pipeline_name):
+        if pipeline_name is None:
+            parts = [self._project, self._user]
+        else:
+            parts = [self._project, self._user, pipeline_name]
+        if run_id is None:
+            parts.append('')
+        else:
+            parts.append(run_id)
         return '--'.join(parts)
 
     def _make_workflow_arn(self, workflow_name):
@@ -194,14 +213,24 @@ class RemoteAWSEnv(LocalAWSEnv):
             for name, value in self._secrets.items()
             if value is not None
         ]
-        if timestamp is None or run_id is None:
+        if timestamp is None or run_id is None:  # deployed workflow
             timestamp = "{% $states.context.Execution.StartTime %}"
             run_id = (
                 "{% $fromMillis($toMillis($states.context.Execution.StartTime), "
                 "'[Y0001][M01][D01]-[H01][m01][s01]') %}"
             )
-        else:
+            log_group = self._deployed_log_group
+            log_prefix = (
+                "{% "
+                f"'{self._make_log_prefix(None, pipeline_name)}' & "
+                "$fromMillis($toMillis($states.context.Execution.StartTime), "
+                "'[Y0001][M01][D01]-[H01][m01][s01]') "
+                "%}"
+            )
+        else:  # adhoc workflow
             timestamp = timestamp.isoformat()
+            log_group = self._adhoc_log_group
+            log_prefix = self._make_log_prefix(run_id, None)
 
         return {
             f"RegisterTask{task_index}": {
@@ -250,11 +279,9 @@ class RemoteAWSEnv(LocalAWSEnv):
                             "LogConfiguration": {
                                 "LogDriver": "awslogs",
                                 "Options": {
-                                    "awslogs-group":
-                                        self._log_group_prefix + workflow_name,
+                                    "awslogs-group": log_group,
                                     "awslogs-region": self._aws_region,
-                                    "awslogs-stream-prefix": "ecs",
-                                    "awslogs-create-group": "true"
+                                    "awslogs-stream-prefix": log_prefix,
                                 }
                             }
                         }
@@ -450,23 +477,6 @@ class RemoteAWSEnv(LocalAWSEnv):
         print(f'Workflow execution: {result["executionArn"]}')
         print(f'Started at {result["startDate"]}')
 
-    def print_logs(self, run_id, start_timestamp, stream=False):
-        print('\nStreaming logs...')
-        workflow_name = self._make_workflow_name(None, run_id)
-        command = [
-            self._aws_command,
-            'logs',
-            'tail',
-            '--profile', self._aws_profile,
-            '--region', self._aws_region,
-            '--since', start_timestamp.isoformat(),
-            '--format', 'short',
-        ]
-        if stream:
-            command.append('--follow')
-        command.append(self._log_group_prefix + workflow_name)
-        run_command(command)
-
     def deploy_pipeline(
         self,
         pipeline,
@@ -564,4 +574,29 @@ class RemoteAWSEnv(LocalAWSEnv):
                     stdout=subprocess.DEVNULL,
                 )
             print(f'Created schedule {schedule_name}.')
+
+    def print_logs(self, run_id, pipeline, start_timestamp, stream=False):
+        print('\nStreaming logs...')
+        if pipeline is None:  # print ad-hoc run logs
+            log_group = self._adhoc_log_group
+        else:                 # print deployed run logs
+            log_group = self._deployed_log_group
+        log_prefix = self._make_log_prefix(run_id, pipeline)
+        if run_id is not None:
+            log_prefix = log_prefix + '/'
+
+        command = [
+            self._aws_command,
+            'logs',
+            'tail',
+            '--profile', self._aws_profile,
+            '--region', self._aws_region,
+            '--log-stream-name-prefix', log_prefix,
+            '--since', start_timestamp.isoformat(),
+            '--format', 'short',
+        ]
+        if stream:
+            command.append('--follow')
+        command.append(log_group)
+        run_command(command)
 

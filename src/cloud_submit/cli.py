@@ -48,6 +48,25 @@ def init(ctx):
     ctx.obj['controller'] = controller
 
 
+def parse_since_arg(since):
+    try:
+        if since.endswith('w'):
+            since = dt.timedelta(weeks=float(since[:-1]))
+        elif since.endswith('d'):
+            since = dt.timedelta(days=float(since[:-1]))
+        elif since.endswith('h'):
+            since = dt.timedelta(hours=float(since[:-1]))
+        elif since.endswith('m'):
+            since = dt.timedelta(minutes=float(since[:-1]))
+        elif since.endswith('s'):
+            since = dt.timedelta(seconds=float(since[:-1]))
+        else:
+            since = dt.datetime.fromisoformat(since)
+    except ValueError:
+        abort(f'Invalid --since argument: {since}')
+    return since
+
+
 def tabulate(data, header=None):
     if not data:
         return ''
@@ -1045,49 +1064,119 @@ def move_artifacts(
         abort(str(e))
 
 
-# logs command
+# logs group
+
+@main.group('logs', help='Retrieve logs.')
+def logs():
+    pass
 
 
-@main.command(
-    name='logs',
-    help='Show logs from run RUN_ID.',
+@logs.command(
+    name='show',
+    help='Show logs from ad-hoc or deployed runs.',
 )
 @click.option(
     '--env', '-e',
     type=str,
     default=None,
-    help='The name of the build environment to use.',
+    help='The name of the environment to use.',
+)
+@click.option(
+    '--run-id', '-r',
+    type=str,
+    default=None,
+    help=(
+        'The run ID of the run whose logs are shown. '
+        'Can be omitted when viewing logs of deployed runs '
+        '(i.e. when --pipeline is specified). '
+    ),
+)
+@click.option(
+    '--pipeline', '-p',
+    type=str,
+    default=None,
+    help=(
+        'The name of pipeline whose logs are shown. '
+        'When specified, logs of deployed runs of that pipeline are shown. '
+        'When omitted, logs of ad-hoc runs are shown (which are identified '
+        'by the run ID alone).'
+    ),
 )
 @click.option(
     '--since',
     type=str,
-    default='1m',
+    default='1d',
     help=(
         'The time from which to retrieve the logs. This should be a timestamp '
         'in ISO format, e.g. 2025-01-01T00:00:00. You can also pass a number '
-        'N suffixed h, m, or s to retrieve logs from the last N hours, minutes '
-        'or seconds.'
+        'N suffixed w, d, h, m, or s to retrieve logs from the last N weeks, '
+        'days, hours, minutes or seconds.'
     ),
 )
 @click.option('--stream', '-s', is_flag=True)
-@click.argument('run_id', type=str)
 @click.pass_context
-def print_logs(ctx, env, since, stream, run_id):
+def show_logs(ctx, env, run_id, pipeline, since, stream):
     init(ctx)
     controller = ctx.obj['controller']
+    since = parse_since_arg(since)
 
     try:
-        if since.endswith('h'):
-            since = dt.timedelta(seconds=float(since[:-1])*3600)
-        elif since.endswith('m'):
-            since = dt.timedelta(seconds=float(since[:-1])*60)
-        elif since.endswith('s'):
-            since = dt.timedelta(seconds=float(since[:-1]))
-        else:
-            since = dt.datetime.fromisoformat(since)
-    except ValueError:
-        abort(f'Invalid --since argument: {since}')
-    try:
-        controller.print_logs(run_id, since=since, env=env, stream=stream)
+        controller.print_logs(
+            run_id=run_id,
+            pipeline=pipeline,
+            since=since,
+            env=env,
+            stream=stream,
+        )
     except CloudSubmitError as e:
         abort(str(e))
+
+
+@logs.command(
+    name='list-runs',
+    help='List the run IDs for which we have logs.',
+)
+@click.option(
+    '--env', '-e',
+    type=str,
+    default=None,
+    help='The name of the environment to use.',
+)
+@click.option(
+    '--pipeline', '-p',
+    type=str,
+    default=None,
+    help=(
+        'The name of pipeline whose runs to list. '
+        'When specified, IDs of deployed runs of that pipeline are shown. '
+        'When omitted, IDs of ad-hoc runs are shown (which are identified '
+        'by the run ID alone).'
+    ),
+)
+@click.option(
+    '--since',
+    type=str,
+    default='1w',
+    help=(
+        'The time from which to retrieve the logs. This should be a timestamp '
+        'in ISO format, e.g. 2025-01-01T00:00:00. You can also pass a number '
+        'N suffixed w, d, h, m, or s to retrieve logs from the last N weeks, '
+        'days, hours, minutes or seconds.'
+    ),
+)
+@click.pass_context
+def print_logs(ctx, env, pipeline, since):
+    init(ctx)
+    controller = ctx.obj['controller']
+    since = parse_since_arg(since)
+
+    try:
+        runs = controller.list_runs(
+            pipeline=pipeline,
+            since=since,
+            env=env,
+        )
+    except CloudSubmitError as e:
+        abort(str(e))
+    for run in sorted(runs):
+        print(run)
