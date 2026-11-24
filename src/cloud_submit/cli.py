@@ -1156,7 +1156,7 @@ def show_logs(ctx, env, run_id, pipeline, since, stream):
 @click.option(
     '--since',
     type=str,
-    default='1w',
+    default=None,
     help=(
         'The time from which to retrieve the logs. This should be a timestamp '
         'in ISO format, e.g. 2025-01-01T00:00:00. You can also pass a number '
@@ -1165,10 +1165,11 @@ def show_logs(ctx, env, run_id, pipeline, since, stream):
     ),
 )
 @click.pass_context
-def print_logs(ctx, env, pipeline, since):
+def list_runs(ctx, env, pipeline, since):
     init(ctx)
     controller = ctx.obj['controller']
-    since = parse_since_arg(since)
+    if since is not None:
+        since = parse_since_arg(since)
 
     try:
         runs = controller.list_runs(

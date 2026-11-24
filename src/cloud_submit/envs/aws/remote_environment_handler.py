@@ -600,3 +600,38 @@ class RemoteAWSEnv(LocalAWSEnv):
         command.append(log_group)
         run_command(command)
 
+    def list_runs(self, pipeline, start_timestamp):
+        if pipeline is None:  # print ad-hoc run logs
+            log_group = self._adhoc_log_group
+        else:                 # print deployed run logs
+            log_group = self._deployed_log_group
+        log_prefix = self._make_log_prefix(None, pipeline)
+        if start_timestamp is not None:
+            start_timestamp = start_timestamp.timestamp()
+
+        command = [
+            self._aws_command,
+            'logs',
+            'describe-log-streams',
+            '--profile', self._aws_profile,
+            '--region', self._aws_region,
+            '--log-group-name', log_group,
+            '--log-stream-name-prefix', log_prefix,
+        ]
+        result = run_command(
+            command,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        result = json.loads(result.stdout)
+        runs = set()
+        for run in result['logStreams']:
+            if start_timestamp is not None \
+                    and run['firstEventTimestamp'] < start_timestamp:
+                continue
+            run_id = run['logStreamName']
+            run_id = run_id[len(log_prefix):]
+            run_id = run_id[:run_id.find('/')]
+            runs.add(run_id)
+        return list(runs)
+
