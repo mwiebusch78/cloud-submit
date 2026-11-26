@@ -105,17 +105,22 @@ class LocalAWSEnv(LocalEnv):
         )
         password = result.stdout.strip()
 
-        run_command(
-            [
-                self._docker_command,
-                'login',
-                '--username', 'AWS',
-                '--password', password,
-                self._docker_registry,
-            ],
-            hide_stderr=True,
-            stdout=subprocess.DEVNULL,
-        )
+        for docker_registry in set([
+                self._docker_registry_base,
+                self._docker_registry_adhoc,
+                self._docker_registry_deployed,
+        ]):
+            run_command(
+                [
+                    self._docker_command,
+                    'login',
+                    '--username', 'AWS',
+                    '--password', password,
+                    docker_registry,
+                ],
+                hide_stderr=True,
+                stdout=subprocess.DEVNULL,
+            )
         self._last_docker_login_ts = now
 
     def install_execution_handler(self, path):
@@ -129,12 +134,13 @@ class LocalAWSEnv(LocalEnv):
             os.path.join(path, 's3_tools.py'),
         )
 
-    def _build_image(self, path, image, build_id, docker_flags, push):
+    def _build_image(self, path, image, pipeline, build_id, docker_flags, push):
         if not push:
-            ref = super().build_image(path, image, build_id, docker_flags)
+            ref = super().build_image(
+                path, image, pipeline, build_id, docker_flags)
         else:
             self._docker_login()
-            repo = self.get_image_repo(image)
+            repo = self.get_image_repo(image, pipeline)
             ref = ':'.join([repo, build_id])
             command = [
                 self._docker_command,
@@ -149,10 +155,11 @@ class LocalAWSEnv(LocalEnv):
             run_command(command)
         return ref
 
-    def build_image(self, path, image, build_id, docker_flags):
+    def build_image(self, path, image, pipeline, build_id, docker_flags):
         return self._build_image(
             path=path,
             image=image,
+            pipeline=pipeline,
             build_id=build_id,
             docker_flags=docker_flags,
             push=isinstance(image, BaseImage),
@@ -165,7 +172,24 @@ class LocalAWSEnv(LocalEnv):
 
     def _list_remote_image_tags(self, repo_name):
         self._docker_login()
-        repo_name = '/'.join(repo_name.split('/')[1:])
+        repo_name = repo_name[repo_name.find('/')+1:]
+
+        result = run_command(
+            [
+                self._aws_command,
+                'ecr',
+                'describe-repositories',
+                '--region', self._aws_region,
+                '--profile', self._aws_profile,
+            ],
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        result = json.loads(result.stdout)
+        repos = set(r['repositoryName'] for r in result['repositories'])
+        if repo_name not in repos:
+            return []
+
         result = run_command(
             [
                 self._aws_command,
@@ -193,7 +217,11 @@ class LocalAWSEnv(LocalEnv):
         tags = {}
         for ref in refs:
             registry, repo, tag, digest = parse_image_ref(ref)
-            if registry != self._docker_registry:
+            if registry not in [
+                    self._docker_registry_base,
+                    self._docker_registry_adhoc,
+                    self._docker_registry_deployed,
+            ]:
                 raise CloudSubmitError(
                     f'Cannot delete image ref {ref} due to unknown registry.')
             tags[repo] = tags.get(repo, [])

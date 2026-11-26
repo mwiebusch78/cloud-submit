@@ -115,3 +115,6 @@ ecs_execution_role_arn: n/a # TODO: add the ARN of your task execution role
 # user of the profile you specified under `aws_profile`) must have permission
 # to assume the stepfunction role you specify here.
 stepfunctions_role_arn: n/a # TODO: add your stepfunctions role ARN.
+
+adhoc_log_group: /csub/adhoc        # CloudWatch log group for ad-hoc runs
+deployed_log_group: /csub/deployed  # CloudWatch log group for deployed runs

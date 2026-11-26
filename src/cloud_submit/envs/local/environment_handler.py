@@ -30,7 +30,13 @@ class LocalEnv(EnvironmentHandler):
         secrets=None,
         docker_command='docker',
         docker_registry=None,
+        docker_registry_base=None,
+        docker_registry_adhoc=None,
+        docker_registry_deployed=None,
         docker_namespace='csub',
+        docker_namespace_base=None,
+        docker_namespace_adhoc=None,
+        docker_namespace_deployed=None,
         docker_mounts=None,
     ):
         super().__init__(
@@ -41,7 +47,13 @@ class LocalEnv(EnvironmentHandler):
             secrets=secrets,
             docker_command=docker_command,
             docker_registry=docker_registry,
+            docker_registry_base=docker_registry_base,
+            docker_registry_adhoc=docker_registry_adhoc,
+            docker_registry_deployed=docker_registry_deployed,
             docker_namespace=docker_namespace,
+            docker_namespace_base=docker_namespace_base,
+            docker_namespace_adhoc=docker_namespace_adhoc,
+            docker_namespace_deployed=docker_namespace_deployed,
         )
         self._docker_mounts = []
         if docker_mounts is not None:

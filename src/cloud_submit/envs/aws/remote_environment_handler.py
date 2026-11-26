@@ -90,10 +90,11 @@ class RemoteAWSEnv(LocalAWSEnv):
             os.path.join(path, 's3_tools.py'),
         )
 
-    def build_image(self, path, image, build_id, docker_flags):
+    def build_image(self, path, image, pipeline, build_id, docker_flags):
         return self._build_image(
             path=path,
             image=image,
+            pipeline=pipeline,
             build_id=build_id,
             docker_flags=docker_flags,
             push=True,

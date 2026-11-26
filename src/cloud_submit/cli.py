@@ -215,11 +215,10 @@ steps are executed.
 @click.option(
     '--run-id', '-r',
     type=str,
-    default=None,
+    default='adhoc',
     help=(
         'The ID for the run. This will be used, for example, to uniquely name '
-        'artifacts. Defaults to the current timestamp in YYYYMMDD-HHMMSS-XXXX '
-        'format, where XXXX is a four-character UUID.'
+        'artifacts.'
     ),
 )
 @click.option(
@@ -615,7 +614,10 @@ def unset_image(ctx, env, unset_all, images):
     config = ctx.obj['config']
     controller = ctx.obj['controller']
     if unset_all:
-        images = list(config.images.keys())
+        images = [
+            name for name, image in config.images.items()
+            if isinstance(image, BaseImage)
+        ]
     for image in images:
         try:
             controller.unset_image(image, env=env)
@@ -1087,8 +1089,7 @@ def logs():
     default=None,
     help=(
         'The run ID of the run whose logs are shown. '
-        'Can be omitted when viewing logs of deployed runs '
-        '(i.e. when --pipeline is specified). '
+        "Defaults to 'adhoc' when --pipeline is not specified."
     ),
 )
 @click.option(
@@ -1119,6 +1120,8 @@ def show_logs(ctx, env, run_id, pipeline, since, stream):
     init(ctx)
     controller = ctx.obj['controller']
     since = parse_since_arg(since)
+    if pipeline is None and run_id is None:
+        run_id = 'adhoc'
 
     try:
         controller.print_logs(

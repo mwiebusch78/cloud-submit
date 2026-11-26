@@ -27,14 +27,44 @@ class EnvironmentHandler:
         secrets=None,
         docker_command='docker',
         docker_registry=None,
+        docker_registry_base=None,
+        docker_registry_adhoc=None,
+        docker_registry_deployed=None,
         docker_namespace='csub',
+        docker_namespace_base=None,
+        docker_namespace_adhoc=None,
+        docker_namespace_deployed=None,
     ):
         self.name = str(name)
         self._project = str(project)
         self._user = str(user)
         self._docker_command = str(docker_command)
-        self._docker_registry = docker_registry
-        self._docker_namespace = str(docker_namespace)
+
+        self._docker_registry_base = None
+        self._docker_registry_adhoc = None
+        self._docker_registry_deployed = None
+
+        if docker_registry is not None:
+            self._docker_registry_base = str(docker_registry)
+            self._docker_registry_adhoc = str(docker_registry)
+            self._docker_registry_deployed = str(docker_registry)
+        if docker_registry_base is not None:
+            self._docker_registry_base = str(docker_registry_base)
+        if docker_registry_adhoc is not None:
+            self._docker_registry_adhoc = str(docker_registry_adhoc)
+        if docker_registry_deployed is not None:
+            self._docker_registry_deployed = str(docker_registry_deployed)
+
+
+        self._docker_namespace_base = str(docker_namespace)
+        self._docker_namespace_adhoc = str(docker_namespace)
+        self._docker_namespace_deployed = str(docker_namespace)
+        if docker_namespace_base is not None:
+            self._docker_namespace_base = str(docker_namespace_base)
+        if docker_namespace_adhoc is not None:
+            self._docker_namespace_adhoc = str(docker_namespace_adhoc)
+        if docker_namespace_deployed is not None:
+            self._docker_namespace_deployed = str(docker_namespace_deployed)
 
         self._envvars = {
             'CSUB_PROJECT': self._project,
@@ -45,13 +75,6 @@ class EnvironmentHandler:
         self._secrets = {}
         if secrets is not None:
             self._secrets.update(secrets)
-
-    def _generate_id(self, timestamp, id):
-        if id is not None:
-            return id
-        uid = str(uuid.uuid4())
-        timestamp=to_utc(timestamp)
-        return timestamp.strftime('%Y%m%d-%H%M%S-') + uid[:4]
 
     def generate_build_id(self, timestamp, build_id=None):
         """Generate an ID for an image build.
@@ -65,21 +88,11 @@ class EnvironmentHandler:
           generated_build_id (str): Either `build_id` when `build_id` was
             not ``None`` or a new unique ID generated based on `timestamp`.
         """
-        return self._generate_id(timestamp, build_id)
-
-    def generate_run_id(self, timestamp, run_id=None):
-        """Generate an ID for a pipeline run.
-
-        Args:
-          timestamp (datetime): The current date and time.
-          run_id (str, optional): The run ID to return. A new unique ID
-            is only generated when `run_id` is ``None``.
-
-        Returns:
-          generated_run_id (str): Either `run_id` when `run_id` was
-            not ``None`` or a new unique ID generated based on `timestamp`.
-        """
-        return self._generate_id(timestamp, run_id)
+        if build_id is not None:
+            return build_id
+        uid = str(uuid.uuid4())
+        timestamp=to_utc(timestamp)
+        return timestamp.strftime('%Y%m%d-%H%M%S-') + uid[:4]
 
     def install_execution_handler(self, path):
         """Install the execution handler under `path`.
@@ -138,31 +151,38 @@ class EnvironmentHandler:
         """
         raise NotImplementedError
 
-    def get_image_repo(self, image):
-        prefix = []
-        if self._docker_registry is not None:
-            prefix.append(self._docker_registry)
-        else:
-            prefix.append('localhost')
-        if self._docker_namespace is not None:
-            prefix.append(self._docker_namespace)
-        prefix = '/'.join(prefix)
-
+    def get_image_repo(self, image, pipeline=None):
         if isinstance(image, BaseImage):
-            return (
-                f'{prefix}'
-                f'/{self._project}'
-                f'/{self._user}'
-                f'/{image.name}'
-            )
-        elif isinstance(image, ExecutionImage):
-            return (
-                f'{prefix}'
-                f'/{self._project}'
-                f'/{self._user}'
-                f'/{image.name}'
-                f'.{self.name}'
-            )
+            docker_registry = self._docker_registry_base
+            docker_namespace = self._docker_namespace_base
+            image_type = 'base'
+        elif pipeline is None:
+            docker_registry = self._docker_registry_adhoc
+            docker_namespace = self._docker_namespace_adhoc
+            image_type = 'adhoc'
+        else:
+            docker_registry = self._docker_registry_deployed
+            docker_namespace = self._docker_namespace_deployed
+            image_type = 'deployed'
+
+        repo = []
+        if docker_registry is not None:
+            repo.append(docker_registry)
+        else:
+            repo.append('localhost')
+        if docker_namespace is not None:
+            repo.append(docker_namespace)
+
+        repo.extend([image_type, self._project, self._user])
+        if pipeline is not None:
+            repo.append(pipeline)
+
+        image_name = image.name
+        if isinstance(image, ExecutionImage):
+            image_name = '.'.join([image_name, self.name])
+        repo.append(image_name)
+
+        return '/'.join(repo)
 
     def pull_base_image(self, ref):
         """Pull an image from the remote registry.
@@ -235,8 +255,8 @@ class EnvironmentHandler:
     def remove_remote_image_refs(self, refs):
         raise NotImplementedError
 
-    def build_image(self, path, image, build_id, docker_flags):
-        repo = self.get_image_repo(image)
+    def build_image(self, path, image, pipeline, build_id, docker_flags):
+        repo = self.get_image_repo(image, pipeline)
         ref = ':'.join([repo, build_id])
         command = [
             self._docker_command,

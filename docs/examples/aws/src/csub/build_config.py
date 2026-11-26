@@ -152,6 +152,8 @@ def build_config(project_root, userconfig):
                 ecs_execution_role_arn=userconfig['ecs_execution_role_arn'],
                 ecs_task_role_arn=userconfig['ecs_task_role_arn'],
                 stepfunctions_role_arn=userconfig['stepfunctions_role_arn'],
+                adhoc_log_group=userconfig['adhoc_log_group'],
+                deployed_log_group=userconfig['deployed_log_group'],
             ),
         ],
     )

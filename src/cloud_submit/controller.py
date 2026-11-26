@@ -61,7 +61,15 @@ class Controller:
         except FileNotFoundError:
             pass
 
-    def _build_image(self, image, build_id, env, docker_flags, rebuild=False):
+    def _build_image(
+        self,
+        image,
+        pipeline,
+        build_id,
+        env,
+        docker_flags,
+        rebuild=False,
+    ):
         is_execution_image = isinstance(image, ExecutionImage)
 
         if not rebuild and not is_execution_image:
@@ -96,7 +104,7 @@ class Controller:
         image.setup_builddir(path, parent_ref)
 
         print(f'Building image {image.name}.')
-        ref = env.build_image(path, image, build_id, docker_flags)
+        ref = env.build_image(path, image, pipeline, build_id, docker_flags)
         if ref is None:
             raise CloudSubmitError(
                 'build_image method of environment handler did not '
@@ -105,7 +113,15 @@ class Controller:
         if not is_execution_image:
             self._save_image_ref(image, ref)
 
-    def build_images(self, images, build_id=None, env=None, docker_flags=None):
+    def build_images(
+        self,
+        images,
+        build_id=None,
+        run_id='adhoc',
+        env=None,
+        docker_flags=None,
+        pipeline=None,
+    ):
         now = dt.datetime.now(tz=dt.UTC)
         env_handler = self._config.get_build_env(env)
         build_id = env_handler.generate_build_id(now, build_id)
@@ -128,8 +144,11 @@ class Controller:
                 if image_name not in all_images:
                     continue
                 rebuild = image_name in images
+                id_ = build_id if isinstance(image, BaseImage) else run_id
                 self._build_image(
-                    image, build_id, env_handler, docker_flags, rebuild=rebuild)
+                    image, pipeline, id_, env_handler, docker_flags,
+                    rebuild=rebuild
+                )
 
     def list_image_refs(self, images=None, ids=None, env=None, remote=False):
         env_handler = self._config.get_build_env(env)
@@ -377,7 +396,8 @@ class Controller:
         self,
         pipeline,
         steps=None,
-        run_id=None,
+        run_id='adhoc',
+        build_id=None,
         timestamp=None,
         env=None,
         build_env=None,
@@ -399,7 +419,7 @@ class Controller:
             timestamp = now
         timestamp = to_utc(timestamp)
         env_handler = self._config.get_run_env(env)
-        run_id = env_handler.generate_run_id(now, run_id)
+        build_id = env_handler.generate_build_id(now, build_id)
         if steps is None:
             steps = [step.name for step in pipeline.steps]
         steps = set(steps)
@@ -407,7 +427,8 @@ class Controller:
 
         with self._config.in_project_root():
             images = [step.image for step in steps]
-            self.build_images(images, build_id=run_id, env=build_env)
+            self.build_images(
+                images, build_id=build_id, run_id=run_id, env=build_env)
             refs = {}
             overwrite_artifacts = []
             for step in steps:
@@ -416,7 +437,10 @@ class Controller:
                     raise CloudSubmitError(
                         f'Cannot find declaration for image {step.image}.')
                 repo = env_handler.get_image_repo(image)
-                refs[step.name] = ':'.join([repo, run_id])
+                refs[step.name] = ':'.join([
+                    repo,
+                    (build_id if isinstance(image, BaseImage) else run_id),
+                ])
 
                 for loc in step.outputs.values():
                     artifact = self._config.artifacts[loc.artifact_name].copy()
@@ -464,14 +488,19 @@ class Controller:
 
         with self._config.in_project_root():
             images = [step.image for step in pipeline.steps]
-            self.build_images(images, build_id=build_id, env=build_env)
+            self.build_images(
+                images,
+                pipeline=pipeline.name,
+                build_id=build_id,
+                env=build_env,
+            )
             refs = {}
             for step in pipeline.steps:
                 image = self._config.images.get(step.image)
                 if image is None:
                     raise CloudSubmitError(
                         f'Cannot find declaration for image {step.image}.')
-                repo = env_handler.get_image_repo(image)
+                repo = env_handler.get_image_repo(image, pipeline.name)
                 refs[step.name] = ':'.join([repo, build_id])
 
             temp_path = 'temp/deploy'
