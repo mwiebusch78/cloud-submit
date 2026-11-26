@@ -511,6 +511,14 @@ class Controller:
                 temp_path=temp_path,
             )
 
+    def list_deployed_pipelines(self, env=None):
+        env_handler = self._config.get_run_env(env)
+        return env_handler.list_deployed_pipelines()
+
+    def undeploy_pipeline(self, pipeline, env=None):
+        env_handler = self._config.get_run_env(env)
+        return env_handler.undeploy_pipeline(pipeline)
+
     def print_logs(
         self,
         run_id=None,

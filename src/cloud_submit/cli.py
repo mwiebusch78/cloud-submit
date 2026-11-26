@@ -169,20 +169,43 @@ listed (if they exist). Otherwise all available pipelines are listed.
     is_flag=True,
     help='Also list the steps of each pipeline.'
 )
+@click.option(
+    '--deployed', '-d',
+    is_flag=True,
+    help='Only show deployed pipelines.'
+)
+@click.option(
+    '--env', '-e',
+    type=str,
+    default=None,
+    help='The name of the environment in which to look for deployed pipelines.',
+)
 @click.argument(
     'pipelines',
     type=str,
     nargs=-1,
 )
 @click.pass_context
-def list_pipelines(ctx, steps, pipelines):
+def list_pipelines(ctx, steps, deployed, env, pipelines):
     init(ctx)
     config = ctx.obj['config']
+    controller = ctx.obj['controller']
+
     if pipelines:
         pipelines = set(pipelines)
     else:
         pipelines = None
+
+    if deployed:
+        try:
+            deployed_pipelines = controller.list_deployed_pipelines(env)
+        except CloudSubmitError as e:
+            abort(str(e))
+        deployed_pipelines = set(deployed_pipelines)
+
     for pipeline in config.pipelines.values():
+        if deployed and pipeline.name not in deployed_pipelines:
+            continue
         if pipelines is None or pipeline.name in pipelines:
             print(pipeline.name)
             if steps:
@@ -335,6 +358,48 @@ def deploy_pipeline(
             pipeline.name,
             env=env,
             build_env=build_env,
+        )
+    except CloudSubmitError as e:
+        abort(str(e))
+
+
+@pipelines.command(
+    name='undeploy',
+    help="""Undeploy a pipeline.
+
+Remove the deployment of pipeline PIPELINE.
+"""
+)
+@click.option(
+    '--env', '-e',
+    type=str,
+    default=None,
+    help='The name of the environment to use.',
+)
+@click.argument(
+    'pipeline',
+    type=str,
+    required=True,
+)
+@click.pass_context
+def deploy_pipeline(
+    ctx,
+    env,
+    pipeline,
+):
+    init(ctx)
+    config = ctx.obj['config']
+    controller = ctx.obj['controller']
+
+    try:
+        pipeline = config.pipelines[pipeline]
+    except KeyError:
+        abort(f'Pipeline not found: {pipeline}')
+
+    try:
+        deployment_data = controller.undeploy_pipeline(
+            pipeline,
+            env=env,
         )
     except CloudSubmitError as e:
         abort(str(e))

@@ -140,8 +140,7 @@ class RemoteAWSEnv(LocalAWSEnv):
             f'schedule/default/{schedule_name}',
         ])
 
-    def _check_workflow_exists(self, workflow_name):
-        workflow_arn = self._make_workflow_arn(workflow_name)
+    def _list_workflows(self):
         result = run_command(
             [
                 self._aws_command,
@@ -154,7 +153,11 @@ class RemoteAWSEnv(LocalAWSEnv):
             text=True,
             hide_stderr=True,
         )
-        result = json.loads(result.stdout)
+        return json.loads(result.stdout)
+
+    def _check_workflow_exists(self, workflow_name):
+        workflow_arn = self._make_workflow_arn(workflow_name)
+        result = self._list_workflows()
         arns = set(s['stateMachineArn'] for s in result['stateMachines'])
         return workflow_arn in arns
 
@@ -575,6 +578,46 @@ class RemoteAWSEnv(LocalAWSEnv):
                     stdout=subprocess.DEVNULL,
                 )
             print(f'Created schedule {schedule_name}.')
+
+    def list_deployed_pipelines(self):
+        prefix = '--'.join(['deployed', self._project, self._user, ''])
+        workflows = self._list_workflows()
+        result = []
+        for workflow in workflows['stateMachines']:
+            name = workflow['name']
+            if name.startswith(prefix):
+                result.append(name[len(prefix):])
+        return result
+
+    def undeploy_pipeline(self, pipeline):
+        workflow_name = self._make_workflow_name(pipeline.name, None)
+        workflow_arn = self._make_workflow_arn(workflow_name)
+        if self._check_workflow_exists(workflow_name):
+            run_command(
+                [
+                    self._aws_command,
+                    'stepfunctions',
+                    'delete-state-machine',
+                    '--profile', self._aws_profile,
+                    '--region', self._aws_region,
+                    '--state-machine-arn', workflow_arn,
+                ],
+                stdout=subprocess.DEVNULL,
+            )
+
+        schedule_name = self._make_schedule_name(pipeline.name)
+        if self._check_schedule_exists(schedule_name):
+            run_command(
+                [
+                    self._aws_command,
+                    'scheduler',
+                    'delete-schedule',
+                    '--profile', self._aws_profile,
+                    '--region', self._aws_region,
+                    '--name', schedule_name,
+                ],
+                stdout=subprocess.DEVNULL,
+            )
 
     def print_logs(self, run_id, pipeline, start_timestamp, stream=False):
         print('\nStreaming logs...')
