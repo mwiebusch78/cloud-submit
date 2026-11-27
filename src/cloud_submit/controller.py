@@ -492,6 +492,7 @@ class Controller:
                 images,
                 pipeline=pipeline.name,
                 build_id=build_id,
+                run_id=build_id,
                 env=build_env,
             )
             refs = {}
